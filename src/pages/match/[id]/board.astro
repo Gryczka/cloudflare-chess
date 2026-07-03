@@ -1,0 +1,50 @@
+---
+// P4-F: Minimal board-only page used by Browser Rendering for recap screenshots.
+// Renders a cm-chessboard for a given FEN from the URL query param.
+// Example: /match/some-id/board?fen=rnbqkbnr/...&result=1-0
+export const prerender = false;
+
+const fen = Astro.url.searchParams.get('fen') ?? 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const result = Astro.url.searchParams.get('result') ?? '';
+const white = Astro.url.searchParams.get('white') ?? 'White';
+const black = Astro.url.searchParams.get('black') ?? 'Black';
+---
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Board</title>
+<link rel="stylesheet" href="/cm-chessboard/chessboard.css" />
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f5f1eb; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 540px; height: 580px; font-family: -apple-system, sans-serif; gap: 12px; padding: 16px; }
+#board { width: 480px; height: 480px; }
+.names { display: flex; justify-content: space-between; width: 480px; font-size: 15px; font-weight: 500; color: #521000; }
+.result-badge { font-family: monospace; font-size: 13px; color: #ff4801; padding: 3px 8px; border: 1px solid #ff4801; border-radius: 99px; }
+</style>
+</head>
+<body>
+<div class="names">
+  <span>{white}</span>
+  <span class="result-badge">{result}</span>
+  <span>{black}</span>
+</div>
+<div id="board"></div>
+<script is:inline define:vars={{ fen }}>
+const { Chessboard, COLOR, BORDER_TYPE, PIECES_FILE_TYPE } = await import('/cm-chessboard/src/Chessboard.js');
+new Chessboard(document.getElementById('board'), {
+  position: fen,
+  orientation: COLOR.white,
+  assetsUrl: '/cm-chessboard/',
+  style: {
+    cssClass: 'default',
+    showCoordinates: true,
+    borderType: BORDER_TYPE.frame,
+    pieces: { type: PIECES_FILE_TYPE.svgSprite, file: 'pieces/staunty.svg', tileSize: 40 },
+    animationDuration: 0,
+  },
+});
+</script>
+</body>
+</html>

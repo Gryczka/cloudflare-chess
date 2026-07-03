@@ -1,0 +1,243 @@
+---
+import BackgroundLines from '../components/BackgroundLines.astro';
+import Button from '../components/Button.astro';
+import Card from '../components/Card.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import Layout from '../layouts/Layout.astro';
+import { TIME_CONTROLS } from '../lib/messages';
+---
+
+<Layout title="Find a Chess Match" description="Join the Cloudflare Chess matchmaking queue.">
+	<BackgroundLines />
+	<Header />
+	<main id="main-content" class="play-page">
+		<Card class="match-card">
+			<div class="match-card__copy">
+				<p class="eyebrow">Matchmaking</p>
+				<h1>Find a live match.</h1>
+				<p>Choose a display name and a time control. The Matchmaker Durable Object will pair you with the next compatible player.</p>
+				<p id="player-summary" class="player-summary">No player ID yet. One will be minted when you play.</p>
+			</div>
+
+			<div id="waiting-illustration" class="waiting-illustration" hidden>
+				<img src="/img/waiting.png" alt="A waiting chess pawn" />
+			</div>
+
+			<form id="matchmake-form" class="matchmake-form">
+				<label>
+					<span>Display name</span>
+					<input id="username" name="username" maxlength="24" placeholder="Ada" autocomplete="nickname" required />
+				</label>
+				<fieldset>
+					<legend>Time control</legend>
+					<div class="time-grid">
+						{TIME_CONTROLS.map((control, index) => (
+							<label class="time-pill">
+								<input type="radio" name="time" value={control.value} checked={index === 2} />
+								<strong>{control.label}</strong>
+								<span>{control.description}</span>
+							</label>
+						))}
+					</div>
+				</fieldset>
+				<Button type="submit" class="submit-button">Find a match</Button>
+				<a href="/bot" class="bot-button">Pick a bot difficulty</a>
+				<button id="cancel-matchmaking" type="button" class="cancel-button" hidden>Cancel</button>
+			</form>
+
+			<p id="matchmake-status" class="status-text">Ready when you are.</p>
+		</Card>
+	</main>
+	<Footer />
+	<script>
+		import '../scripts/matchmake.client.ts';
+	</script>
+</Layout>
+
+<style>
+	.play-page {
+		display: grid;
+		place-items: center;
+		min-height: calc(100vh - 180px);
+		padding: 48px 16px 0;
+	}
+
+	:global(.match-card) {
+		width: min(100%, 680px);
+		padding: 44px;
+	}
+
+	.eyebrow {
+		margin: 0 0 12px;
+		font-family: var(--font-mono);
+		font-size: 12px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--cf-orange);
+	}
+
+	h1 {
+		margin: 0;
+		font-size: clamp(38px, 7vw, 64px);
+		line-height: 0.95;
+		font-weight: 500;
+		letter-spacing: -0.05em;
+	}
+
+	.match-card__copy p:last-child {
+		margin: 16px 0 0;
+		line-height: 1.55;
+		color: var(--cf-text-muted);
+	}
+
+	.player-summary {
+		display: inline-flex;
+		width: fit-content;
+		padding: 7px 10px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		font-family: var(--font-mono);
+		font-size: 12px;
+	}
+
+	.waiting-illustration {
+		margin: 24px auto 0;
+		width: 180px;
+	}
+
+	.waiting-illustration img {
+		width: 100%;
+		border-radius: 18px;
+	}
+
+	.matchmake-form {
+		display: grid;
+		gap: 20px;
+		margin-top: 28px;
+	}
+
+	label span,
+	legend {
+		display: block;
+		margin-bottom: 8px;
+		font-weight: 500;
+	}
+
+	input[type='text'],
+	.matchmake-form > label input {
+		width: 100%;
+		padding: 14px 16px;
+		border: 1px solid var(--cf-border);
+		border-radius: 10px;
+		background: var(--cf-bg-100);
+		color: var(--cf-text);
+		outline: none;
+	}
+
+	input:focus {
+		border-color: var(--cf-orange);
+		box-shadow: 0 0 0 3px rgba(255, 72, 1, 0.1);
+	}
+
+	fieldset {
+		margin: 0;
+		padding: 0;
+		border: 0;
+	}
+
+	.time-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 10px;
+	}
+
+	.time-pill {
+		display: grid;
+		gap: 4px;
+		padding: 14px;
+		border: 1px solid var(--cf-border);
+		border-radius: 14px;
+		background: var(--cf-bg-100);
+		cursor: pointer;
+	}
+
+	.time-pill:has(input:checked) {
+		border-color: var(--cf-orange);
+		background: var(--cf-orange-light);
+	}
+
+	/* UX-15: keyboard focus ring on time-control pills */
+	.time-pill:focus-within {
+		outline: 2px solid var(--cf-orange);
+		outline-offset: 2px;
+	}
+
+	.time-pill input {
+		position: absolute;
+		opacity: 0;
+	}
+
+	.time-pill strong {
+		font-size: 20px;
+		font-weight: 500;
+	}
+
+	.time-pill span {
+		margin: 0;
+		font-size: 12px;
+		color: var(--cf-text-muted);
+	}
+
+	.submit-button {
+		width: 100%;
+	}
+
+	.cancel-button {
+		min-height: 44px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: transparent;
+		color: var(--cf-text-muted);
+		cursor: pointer;
+	}
+
+	.bot-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 44px;
+		border: 1px dashed var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		color: var(--cf-orange);
+		font-size: 15px;
+		font-weight: 500;
+		text-decoration: none;
+		cursor: pointer;
+	}
+
+	.bot-button:hover {
+		border-color: var(--cf-orange);
+		background: var(--cf-orange-light);
+	}
+
+	.status-text {
+		margin: 18px 0 0;
+		font-family: var(--font-mono);
+		font-size: 13px;
+		color: var(--cf-text-muted);
+		text-align: center;
+	}
+
+	@media (max-width: 620px) {
+		:global(.match-card) {
+			padding: 28px;
+		}
+
+		.time-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+</style>

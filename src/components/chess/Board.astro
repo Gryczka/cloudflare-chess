@@ -1,0 +1,126 @@
+<div class="board-shell">
+	<div id="chess-board" class="game-board" aria-label="Chess board"></div>
+	<div id="premove-panel" class="premove-panel" hidden aria-live="polite">
+		<div>
+			<strong id="premove-summary">Premoves queued</strong>
+			<ol id="premove-list" class="premove-list"></ol>
+		</div>
+		<button id="clear-premoves" type="button">Clear</button>
+	</div>
+</div>
+
+<style is:global>
+	.board-shell {
+		position: relative;
+		padding: 10px;
+		border: 1px solid var(--cf-border);
+		border-radius: 18px;
+		background: var(--cf-bg-200);
+		box-shadow: var(--shadow-card);
+	}
+
+	.board-shell.is-ended {
+		filter: saturate(0.75);
+	}
+
+	.board-shell.is-ended::after {
+		content: 'Match ended';
+		position: absolute;
+		top: 22px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 3;
+		padding: 7px 12px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		color: var(--cf-orange);
+		font-family: var(--font-mono);
+		font-size: 12px;
+		box-shadow: var(--shadow-card);
+	}
+
+	.game-board {
+		width: min(72vw, 620px);
+		max-width: 100%;
+		aspect-ratio: 1;
+		border-radius: 12px;
+		overflow: hidden;
+	}
+
+	.game-board .cm-chessboard.default .board .square.white {
+		fill: #fef7ed;
+	}
+
+	.game-board .cm-chessboard.default .board .square.black {
+		fill: #ebd5c1;
+	}
+
+	.game-board .cm-chessboard.default .coordinates .coordinate,
+	.game-board .cm-chessboard.default .coordinates .coordinate.white,
+	.game-board .cm-chessboard.default .coordinates .coordinate.black {
+		fill: rgba(82, 16, 0, 0.55);
+		font-family: var(--font-mono);
+	}
+
+	.premove-panel {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		margin-top: 10px;
+		padding: 10px 12px;
+		border: 1px dashed var(--cf-orange);
+		border-radius: 14px;
+		background: var(--cf-orange-light);
+		font-family: var(--font-mono);
+	}
+
+	.premove-panel[hidden] {
+		display: none;
+	}
+
+	.premove-panel strong {
+		display: block;
+		margin-bottom: 4px;
+		font-size: 12px;
+		font-weight: 500;
+		color: var(--cf-orange);
+	}
+
+	.premove-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		font-size: 11px;
+		color: var(--cf-text-muted);
+	}
+
+	.premove-list li {
+		padding: 3px 7px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+	}
+
+	.premove-panel button {
+		min-height: 34px;
+		padding: 0 12px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		color: var(--cf-text);
+		font: inherit;
+		font-size: 12px;
+		cursor: pointer;
+	}
+
+	@media (max-width: 760px) {
+		.game-board {
+			width: calc(100vw - 48px);
+		}
+	}
+</style>

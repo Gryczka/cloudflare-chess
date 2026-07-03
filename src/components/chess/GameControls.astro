@@ -1,0 +1,115 @@
+<section class="game-controls" aria-label="Game controls">
+	<div id="post-match-summary" class="post-match-summary" hidden>
+		<span>Final</span>
+		<strong id="post-match-title">Game over</strong>
+		<p id="post-match-detail">The match has ended.</p>
+	</div>
+	<div id="draw-offer-banner" class="draw-offer" hidden>
+		<span>Draw offered</span>
+		<button id="accept-draw" type="button">Accept</button>
+		<button id="decline-draw" type="button">Decline</button>
+	</div>
+	<div class="control-row" data-player-controls>
+		<button id="offer-draw" type="button">Offer draw</button>
+		<button id="resign" class="danger" type="button">Resign</button>
+	</div>
+	<button id="copy-link" class="copy-link" type="button">Copy match link</button>
+	<p id="game-notice" class="game-notice"></p>
+</section>
+
+<style>
+	.game-controls {
+		display: grid;
+		gap: 10px;
+		padding: 16px;
+		border: 1px solid var(--cf-border);
+		border-radius: 16px;
+		background: var(--cf-bg-200);
+	}
+
+	.post-match-summary {
+		display: grid;
+		gap: 6px;
+		padding: 16px;
+		border: 1px solid var(--cf-orange);
+		border-radius: 14px;
+		background: radial-gradient(circle at top right, rgba(255, 72, 1, 0.18), transparent 46%), var(--cf-orange-light);
+	}
+
+	.post-match-summary[hidden] {
+		display: none;
+	}
+
+	.post-match-summary span {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--cf-orange);
+	}
+
+	.post-match-summary strong {
+		font-size: 22px;
+		font-weight: 500;
+		letter-spacing: -0.03em;
+	}
+
+	.post-match-summary p {
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.45;
+		color: var(--cf-text-muted);
+	}
+
+	.control-row {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 10px;
+	}
+
+	button {
+		min-height: 42px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		color: var(--cf-text);
+		font-weight: 500;
+		cursor: pointer;
+	}
+
+	button:hover {
+		border-style: dashed;
+		border-color: var(--cf-orange);
+	}
+
+	button.danger {
+		color: var(--cf-error);
+	}
+
+	.copy-link {
+		color: var(--cf-orange);
+	}
+
+	.draw-offer {
+		display: grid;
+		grid-template-columns: 1fr auto auto;
+		align-items: center;
+		gap: 8px;
+		padding: 10px;
+		border: 1px solid var(--cf-orange);
+		border-radius: 12px;
+		background: var(--cf-orange-light);
+		font-size: 14px;
+	}
+
+	.draw-offer[hidden] {
+		display: none;
+	}
+
+	.game-notice {
+		min-height: 18px;
+		margin: 0;
+		font-size: 13px;
+		color: var(--cf-text-muted);
+	}
+</style>

@@ -1,0 +1,53 @@
+<footer class="site-footer">
+	<div class="site-footer__inner">
+		<p>&copy; 2026 Cloudflare Chess Demo</p>
+		<div>
+			<a href="/play">Play</a>
+			<a href="/games">Watch</a>
+			<a href="/">Home</a>
+			<a href="/bot">Bots</a>
+			<a href="/leaderboard">Leaderboard</a>
+			<a href="/#architecture">Architecture</a>
+			<a href="https://developers.cloudflare.com/durable-objects/" target="_blank" rel="noreferrer">Durable Objects</a>
+		</div>
+	</div>
+</footer>
+
+<style>
+	.site-footer {
+		margin-top: 64px;
+		border-top: 1px solid var(--cf-border);
+		background: var(--cf-bg-100);
+	}
+
+	.site-footer__inner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		max-width: var(--container-xl);
+		margin: 0 auto;
+		padding: 24px 16px;
+		font-size: 13px;
+		color: var(--cf-text-muted);
+	}
+
+	.site-footer__inner div {
+		display: flex;
+		gap: 16px;
+		flex-wrap: wrap;
+	}
+
+	.site-footer a:hover {
+		color: var(--cf-orange);
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+
+	@media (max-width: 640px) {
+		.site-footer__inner {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+	}
+</style>

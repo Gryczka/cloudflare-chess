@@ -1,0 +1,45 @@
+---
+interface Props {
+	class?: string;
+	flat?: boolean;
+}
+
+const { class: className = '', flat = false } = Astro.props;
+---
+
+<div class:list={['cf-card', flat && 'cf-card--flat', className]}>
+	<div class="corner corner--tl" aria-hidden="true"></div>
+	<div class="corner corner--tr" aria-hidden="true"></div>
+	<div class="corner corner--bl" aria-hidden="true"></div>
+	<div class="corner corner--br" aria-hidden="true"></div>
+	<slot />
+</div>
+
+<style>
+	.cf-card {
+		position: relative;
+		background: var(--cf-bg-200);
+		border: 1px solid var(--cf-border);
+		border-radius: var(--radius-xl);
+		box-shadow: var(--shadow-card);
+	}
+
+	.cf-card--flat {
+		box-shadow: none;
+	}
+
+	.corner {
+		position: absolute;
+		width: 8px;
+		height: 8px;
+		border: 1px solid var(--cf-border);
+		border-radius: 1.5px;
+		background: var(--cf-bg-100);
+		pointer-events: none;
+	}
+
+	.corner--tl { top: -4px; left: -4px; }
+	.corner--tr { top: -4px; right: -4px; }
+	.corner--bl { bottom: -4px; left: -4px; }
+	.corner--br { bottom: -4px; right: -4px; }
+</style>

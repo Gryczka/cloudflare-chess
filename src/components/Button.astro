@@ -1,0 +1,90 @@
+---
+interface Props {
+	href?: string;
+	variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
+	type?: 'button' | 'submit' | 'reset';
+	class?: string;
+	id?: string;
+}
+
+const { href, variant = 'secondary', type = 'button', class: className = '', id } = Astro.props;
+const classes = ['cf-button', `cf-button--${variant}`, className].filter(Boolean).join(' ');
+---
+
+{
+	href ? (
+		<a id={id} href={href} class={classes}>
+			<slot />
+		</a>
+	) : (
+		<button id={id} type={type} class={classes}>
+			<slot />
+		</button>
+	)
+}
+
+<style>
+	.cf-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		min-height: 44px;
+		padding: 12px 24px;
+		border-radius: var(--radius-full);
+		font-weight: 500;
+		line-height: 1;
+		border: 1px solid transparent;
+		cursor: pointer;
+	}
+
+	.cf-button:hover {
+		border-style: dashed;
+	}
+
+	.cf-button:active {
+		transform: translateY(1px) scale(0.98);
+	}
+
+	.cf-button--primary {
+		background: var(--cf-bg-100);
+		color: var(--cf-orange);
+		border-color: var(--cf-bg-100);
+	}
+
+	.cf-button--primary:hover {
+		background: transparent;
+		border-color: var(--cf-orange);
+	}
+
+	.cf-button--secondary {
+		background: var(--cf-orange);
+		color: var(--cf-bg-100);
+	}
+
+	.cf-button--secondary:hover {
+		background: var(--cf-orange-hover);
+		opacity: 0.96;
+	}
+
+	.cf-button--ghost {
+		background: transparent;
+		color: var(--cf-orange);
+		border-color: var(--cf-border);
+	}
+
+	.cf-button--ghost:hover {
+		border-color: var(--cf-orange);
+		color: var(--cf-text);
+	}
+
+	.cf-button--outline {
+		background: var(--cf-bg-200);
+		color: var(--cf-text);
+		border-color: var(--cf-border);
+	}
+
+	.cf-button--outline:hover {
+		background: var(--cf-bg-300);
+	}
+</style>

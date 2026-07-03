@@ -1,0 +1,781 @@
+---
+import { env } from 'cloudflare:workers';
+import BackgroundLines from '../../components/BackgroundLines.astro';
+import Button from '../../components/Button.astro';
+import Card from '../../components/Card.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import Board from '../../components/chess/Board.astro';
+import ChatPanel from '../../components/chess/ChatPanel.astro';
+import GameControls from '../../components/chess/GameControls.astro';
+import MoveList from '../../components/chess/MoveList.astro';
+import PlayerCard from '../../components/chess/PlayerCard.astro';
+import Layout from '../../layouts/Layout.astro';
+import { jsonForScript } from '../../lib/escape';
+import { resolvePlayerId } from '../../lib/identity';
+import type { GameState, Role } from '../../lib/messages';
+
+export const prerender = false;
+
+const playerId = await resolvePlayerId(Astro.request, env.AUTH_SECRET);
+
+const matchId = Astro.params.id ?? '';
+let rawState: import('../../lib/messages').GameState | { status: 'not_found' };
+try {
+	rawState = await env.CHESS_MATCH.getByName(matchId).getState();
+} catch {
+	rawState = { status: 'not_found' };
+}
+const notFound = rawState.status === 'not_found';
+if (notFound) Astro.response.status = 404;
+
+const game = notFound ? undefined : (rawState as GameState);
+const role: Role | undefined = game
+	? playerId === game.whiteId
+		? 'white'
+		: playerId === game.blackId
+			? 'black'
+			: 'spectator'
+	: undefined;
+const opponent = role === 'black' ? 'white' : 'black';
+const playerName = role === 'white' ? game?.whiteName : role === 'black' ? game?.blackName : 'Spectator';
+const opponentName = opponent === 'white' ? game?.whiteName : game?.blackName;
+const payload = game ? jsonForScript({ state: game, role, username: playerName }) : '{}';
+---
+
+<Layout
+	title={game ? `${game.whiteName} vs ${game.blackName}` : 'Match not found'}
+	description={game ? `${game.whiteName} vs ${game.blackName} · ${game.status === 'ended' ? (game.result ?? 'game') : 'live game'} · Cloudflare Chess` : undefined}
+	ogImage={game && game.status === 'ended' ? `/match/${game.matchId}/recap` : undefined}
+>
+	<BackgroundLines />
+	<Header />
+	{
+		notFound ? (
+			<main id="main-content" class="match-not-found">
+				<Card class="match-not-found__card">
+					<img src="/img/404.png" alt="A fallen chess knight" />
+					<p class="eyebrow">Match not found</p>
+					<h1>This board is gone.</h1>
+					<p>The game may have expired after completion, or the match ID is invalid.</p>
+					<Button href="/play">Find a new match</Button>
+				</Card>
+			</main>
+		) : (
+			<main id="main-content" class="match-page">
+				<script id="match-data" type="application/json" set:html={payload}></script>
+				<div id="reconnect-banner" class="reconnect-banner" role="alert" aria-live="assertive" hidden></div>
+
+				<div class="match-meta">
+					<p class="eyebrow">Match {game!.timeControlMs / 60000}+0</p>
+					<h1>{game!.whiteName} vs {game!.blackName}</h1>
+					<p id="role-label">You are {role}. Ratings update at the final result.</p>
+				</div>
+
+				<section class="board-column">
+					<PlayerCard
+						position={opponent}
+						name={opponentName ?? 'Opponent'}
+						clockMs={opponent === 'white' ? game!.whiteMs : game!.blackMs}
+						rating={opponent === 'white' ? game!.whiteRating : game!.blackRating}
+						ratingDelta={opponent === 'white' ? game!.whiteRatingDelta : game!.blackRatingDelta}
+						games={opponent === 'white' ? game!.whiteGames : game!.blackGames}
+						isBot={opponent === 'white' ? game!.whiteId.startsWith('bot:') : game!.blackId.startsWith('bot:')}
+						online={opponent === 'white' ? game!.presence.whiteOnline : game!.presence.blackOnline}
+					/>
+					<Board />
+					<div id="eval-bar-wrap" class="eval-bar-wrap" aria-hidden="true" hidden>
+						<div id="eval-bar" class="eval-bar">
+							<div id="eval-fill" class="eval-fill"></div>
+						</div>
+						<span id="eval-label" class="eval-label">0.0</span>
+					</div>
+					<PlayerCard
+						position={role === 'black' ? 'black' : 'white'}
+						name={playerName ?? 'You'}
+						clockMs={role === 'black' ? game!.blackMs : game!.whiteMs}
+						rating={role === 'black' ? game!.blackRating : game!.whiteRating}
+						ratingDelta={role === 'black' ? game!.blackRatingDelta : game!.whiteRatingDelta}
+						games={role === 'black' ? game!.blackGames : game!.whiteGames}
+						isBot={role === 'black' ? game!.blackId.startsWith('bot:') : game!.whiteId.startsWith('bot:')}
+						online={role === 'black' ? game!.presence.blackOnline : game!.presence.whiteOnline}
+					/>
+				</section>
+
+				<div class="controls-rail">
+					<GameControls />
+					{role !== 'spectator' && (
+						<div class="move-input-row">
+							<label for="move-text-input" class="sr-only">Enter move (e.g. e2e4 or Nf3)</label>
+							<input
+								id="move-text-input"
+								type="text"
+								class="move-text-input"
+								placeholder="e2e4 or Nf3…"
+								autocomplete="off"
+								autocorrect="off"
+								autocapitalize="off"
+								spellcheck={false}
+							/>
+							<button type="button" class="btn-secondary move-text-submit" id="move-text-submit">→</button>
+						</div>
+					)}
+				</div>
+
+				<div id="resign-confirm" class="resign-confirm" role="dialog" aria-modal="true" aria-labelledby="resign-confirm-title" hidden>
+					<div class="resign-confirm__card">
+						<h3 id="resign-confirm-title">Resign this game?</h3>
+						<p>Your opponent wins and ratings update immediately.</p>
+						<div class="resign-confirm__actions">
+							<button type="button" id="resign-yes" class="btn-primary">Yes, resign</button>
+							<button type="button" id="resign-no" class="btn-secondary">Keep playing</button>
+						</div>
+					</div>
+				</div>
+
+				<div id="board-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+				<div id="board-announcer-assertive" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+				<div id="promo-picker" class="promo-picker" role="dialog" aria-modal="true" aria-label="Choose promotion piece" hidden>
+					<p class="promo-picker__label">Promote pawn to:</p>
+					<div class="promo-picker__buttons">
+						<button type="button" class="promo-btn" data-promo="q" aria-label="Queen">♛</button>
+						<button type="button" class="promo-btn" data-promo="r" aria-label="Rook">♜</button>
+						<button type="button" class="promo-btn" data-promo="b" aria-label="Bishop">♝</button>
+						<button type="button" class="promo-btn" data-promo="n" aria-label="Knight">♞</button>
+					</div>
+				</div>
+
+				<div class="panel">
+					<div class="panel__tabs" role="tablist" aria-label="Match panels">
+						<button
+							id="tab-btn-moves"
+							class="panel__tab is-active"
+							role="tab"
+							aria-selected="true"
+							aria-controls="tab-moves"
+							type="button"
+						>Moves</button>
+						<button
+							id="tab-btn-chat"
+							class="panel__tab"
+							role="tab"
+							aria-selected="false"
+							aria-controls="tab-chat"
+							type="button"
+							data-chat-tab
+						>Chat <span class="chat-badge" data-chat-badge hidden aria-label="New messages">●</span></button>
+					</div>
+					<div id="tab-moves" role="tabpanel" aria-labelledby="tab-btn-moves">
+						<MoveList />
+						<div id="coach-card" class="coach-card" hidden>
+							<div class="coach-card__header">
+								<span class="coach-card__icon" aria-hidden="true">🎓</span>
+								<strong>AI Coach</strong>
+								<button type="button" id="coach-dismiss" class="coach-dismiss" aria-label="Dismiss coach">✕</button>
+							</div>
+							<p id="coach-opening" class="coach-opening"></p>
+							<p id="coach-summary" class="coach-summary"></p>
+							<p id="coach-moment" class="coach-moment"></p>
+							<p id="coach-tip" class="coach-tip"></p>
+							<p id="coach-pending" class="coach-pending">Analysing your game… this takes a few seconds.</p>
+						</div>
+						<div id="replay-toolbar" class="replay-toolbar" hidden aria-label="Move navigation">
+							<button type="button" id="replay-start" class="replay-btn" aria-label="Go to start">⏮</button>
+							<button type="button" id="replay-prev" class="replay-btn" aria-label="Previous move">◀</button>
+							<span id="replay-counter" class="replay-counter" aria-live="polite"></span>
+							<button type="button" id="replay-next" class="replay-btn" aria-label="Next move">▶</button>
+							<button type="button" id="replay-end" class="replay-btn" aria-label="Go to end">⏭</button>
+						</div>
+					</div>
+					<div id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat" hidden>
+						<ChatPanel />
+					</div>
+				</div>
+
+				<div
+					id="victory-overlay"
+					class="victory-overlay"
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="victory-title"
+					hidden
+				>
+					<div class="victory-card">
+						<p id="victory-kicker" class="eyebrow">Result</p>
+						<h2 id="victory-title">Game over</h2>
+						<p id="victory-subtitle">The board has settled.</p>
+						<div id="victory-rating" class="victory-rating"></div>
+						<div class="victory-actions">
+							<button id="close-victory" type="button" class="btn-primary">Review board</button>
+							<button id="rematch-btn" type="button" class="btn-secondary" hidden>Rematch</button>
+							<button id="share-btn" type="button" class="btn-secondary">Share</button>
+							<a id="pgn-download" class="btn-secondary" download>Download PGN</a>
+							<button id="pgn-copy" type="button" class="btn-secondary">Copy PGN</button>
+						</div>
+					</div>
+				</div>
+			</main>
+		)
+	}
+	<Footer />
+	{!notFound && (
+		<>
+			<script is:inline>
+				/* Tab switching for Moves / Chat panel */
+				(() => {
+					const tabs = document.querySelectorAll('[role="tab"]');
+					tabs.forEach((tab) => {
+						tab.addEventListener('click', () => {
+							const panelId = tab.getAttribute('aria-controls');
+							if (!panelId) return;
+							tabs.forEach((t) => {
+								t.setAttribute('aria-selected', 'false');
+								t.classList.remove('is-active');
+							});
+							document.querySelectorAll('[role="tabpanel"]').forEach((p) => {
+								/** @type {HTMLElement} */ (p).hidden = true;
+							});
+							tab.setAttribute('aria-selected', 'true');
+							tab.classList.add('is-active');
+							const panel = document.getElementById(panelId);
+							if (panel) panel.hidden = false;
+							// Clear chat badge when chat tab is activated
+							if (tab.id === 'tab-btn-chat') {
+								const badge = document.querySelector('[data-chat-badge]');
+								if (badge) /** @type {HTMLElement} */ (badge).hidden = true;
+							}
+						});
+					});
+				})();
+			</script>
+			<script>import '../../scripts/match.client.ts';</script>
+		</>
+	)}
+</Layout>
+
+<style>
+	/* ── Desktop layout (>980px): two-column grid ── */
+	.match-page {
+		display: grid;
+		grid-template-columns: minmax(0, 680px) minmax(300px, 380px);
+		grid-template-areas:
+			'board meta'
+			'board controls'
+			'board panel';
+		column-gap: 18px;
+		row-gap: 12px;
+		align-items: start;
+		max-width: var(--container-xl);
+		margin: 0 auto;
+		padding: 28px 16px 48px;
+	}
+
+	.board-column {
+		grid-area: board;
+		display: grid;
+		gap: 12px;
+	}
+
+	.match-meta {
+		grid-area: meta;
+		padding: 20px;
+		border: 1px solid var(--cf-border);
+		border-radius: 16px;
+		background: var(--cf-bg-200);
+	}
+
+	.controls-rail {
+		grid-area: controls;
+	}
+
+	.panel {
+		grid-area: panel;
+		border: 1px solid var(--cf-border);
+		border-radius: 16px;
+		background: var(--cf-bg-200);
+		overflow: hidden;
+	}
+
+	/* ── Tab bar ── */
+	.panel__tabs {
+		display: flex;
+		border-bottom: 1px solid var(--cf-border);
+	}
+
+	.panel__tab {
+		flex: 1;
+		padding: 12px 16px;
+		border: 0;
+		background: transparent;
+		color: var(--cf-text-muted);
+		font-size: 13px;
+		font-weight: 500;
+		cursor: pointer;
+		transition: color 150ms ease, background-color 150ms ease;
+	}
+
+	.panel__tab:hover {
+		color: var(--cf-text);
+		background: var(--cf-bg-300);
+	}
+
+	.panel__tab.is-active {
+		color: var(--cf-text);
+		border-bottom: 2px solid var(--cf-orange);
+		margin-bottom: -1px;
+	}
+
+	.chat-badge {
+		display: inline-block;
+		margin-left: 4px;
+		color: var(--cf-orange);
+		font-size: 10px;
+	}
+
+	.chat-badge[hidden] {
+		display: none;
+	}
+
+	/* ── Shared text ── */
+	.eyebrow {
+		margin: 0 0 8px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--cf-orange);
+	}
+
+	.match-meta h1 {
+		margin: 0;
+		font-size: 24px;
+		line-height: 1.1;
+		font-weight: 500;
+		letter-spacing: -0.03em;
+	}
+
+	.match-meta p:last-child {
+		margin: 10px 0 0;
+		color: var(--cf-text-muted);
+	}
+
+	/* ── Match not found ── */
+	.match-not-found {
+		display: grid;
+		place-items: center;
+		min-height: calc(100vh - 160px);
+		padding: 48px 16px;
+	}
+
+	.match-not-found__card {
+		max-width: 540px;
+		padding: 32px;
+		text-align: center;
+	}
+
+	.match-not-found__card img {
+		width: 180px;
+		border-radius: 18px;
+	}
+
+	.match-not-found__card h1 {
+		margin: 0;
+		font-size: 44px;
+		line-height: 1;
+		font-weight: 500;
+		letter-spacing: -0.04em;
+	}
+
+	.match-not-found__card p:last-of-type {
+		margin: 16px 0 24px;
+		color: var(--cf-text-muted);
+		line-height: 1.55;
+	}
+
+	/* ── Victory dialog (UX-5) ── */
+	.victory-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		background: rgba(82, 16, 0, 0.38);
+		backdrop-filter: blur(10px);
+	}
+
+	.victory-overlay[hidden] {
+		display: none;
+	}
+
+	.victory-card {
+		position: relative;
+		width: min(100%, 520px);
+		padding: 42px;
+		border: 1px solid var(--cf-border);
+		border-radius: 24px;
+		background: var(--cf-bg-100);
+		box-shadow: 0 24px 80px rgba(82, 16, 0, 0.22);
+		text-align: center;
+		animation: victoryIn 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+	}
+
+	.victory-card h2 {
+		margin: 0;
+		font-size: clamp(42px, 8vw, 76px);
+		line-height: 0.9;
+		font-weight: 500;
+		letter-spacing: -0.06em;
+	}
+
+	.victory-card p:not(.eyebrow) {
+		margin: 18px 0 0;
+		color: var(--cf-text-muted);
+	}
+
+	.victory-rating {
+		margin-top: 24px;
+		font-family: var(--font-mono);
+		font-size: 15px;
+		color: var(--cf-orange);
+	}
+
+	/* UX-7: action row */
+	.victory-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		justify-content: center;
+		margin-top: 28px;
+	}
+
+	.btn-primary {
+		min-height: 44px;
+		padding: 0 24px;
+		border: 0;
+		border-radius: 9999px;
+		background: var(--cf-orange);
+		color: #fff;
+		font-weight: 500;
+		cursor: pointer;
+	}
+
+	.btn-secondary {
+		min-height: 44px;
+		padding: 0 20px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		color: var(--cf-text);
+		font-weight: 500;
+		cursor: pointer;
+	}
+
+	.btn-secondary[hidden] {
+		display: none;
+	}
+
+	/* PGN anchor shares btn-secondary styles */
+	a.btn-secondary {
+		display: inline-flex;
+		align-items: center;
+		text-decoration: none;
+	}
+
+	.btn-primary:hover { background: var(--cf-orange-hover); }
+	.btn-secondary:hover { border-color: var(--cf-orange); color: var(--cf-orange); }
+
+	:global(.confetti-piece) {
+		position: fixed;
+		top: -16px;
+		z-index: 120;
+		width: 9px;
+		height: 16px;
+		border-radius: 2px;
+		pointer-events: none;
+		animation: confettiFall var(--fall-duration, 1800ms) linear forwards;
+	}
+
+	@keyframes victoryIn {
+		from { opacity: 0; transform: translateY(18px) scale(0.96); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
+	}
+
+	@keyframes confettiFall {
+		to { transform: translate3d(var(--fall-drift), 110vh, 0) rotate(720deg); opacity: 0.95; }
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.victory-card { animation: none; }
+		:global(.confetti-piece) { display: none; }
+	}
+
+	/* P4-E: Coach card */
+	.coach-card {
+		margin: 8px 12px;
+		padding: 14px 16px;
+		border: 1px solid var(--cf-border);
+		border-radius: 12px;
+		background: var(--cf-bg-100);
+		font-size: 13px;
+		line-height: 1.55;
+	}
+	.coach-card[hidden] { display: none; }
+	.coach-card__header {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		margin-bottom: 10px;
+	}
+	.coach-card__header strong { flex: 1; font-size: 13px; }
+	.coach-card__icon { font-size: 16px; }
+	.coach-dismiss {
+		width: 24px; height: 24px; padding: 0;
+		border: 0; background: transparent;
+		color: var(--cf-text-muted); cursor: pointer; font-size: 13px;
+	}
+	.coach-dismiss:hover { color: var(--cf-text); }
+	.coach-opening { margin: 0 0 6px; font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cf-orange); }
+	.coach-summary, .coach-moment, .coach-tip {
+		margin: 0 0 6px;
+		color: var(--cf-text-muted);
+	}
+	.coach-moment { color: var(--cf-text); font-style: italic; }
+	.coach-tip {
+		padding: 8px 10px;
+		border-left: 2px solid var(--cf-orange);
+		background: var(--cf-orange-light);
+		color: var(--cf-text);
+		border-radius: 0 8px 8px 0;
+		margin-top: 8px;
+	}
+	.coach-pending { margin: 0; color: var(--cf-text-muted); font-style: italic; }
+
+	/* P4-A: eval bar */
+	.eval-bar-wrap {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		height: 12px;
+	}
+	.eval-bar-wrap[hidden] { display: none; }
+	.eval-bar {
+		flex: 1;
+		height: 10px;
+		border-radius: 5px;
+		background: var(--cf-text);
+		overflow: hidden;
+		position: relative;
+	}
+	.eval-fill {
+		position: absolute;
+		left: 0;
+		top: 0;
+		height: 100%;
+		background: #fff;
+		border-radius: 5px;
+		transition: width 350ms ease;
+		width: 50%; /* 50% = equal; >50% = white winning */
+	}
+	.eval-label {
+		font-family: var(--font-mono);
+		font-size: 11px;
+		color: var(--cf-text-muted);
+		min-width: 36px;
+		text-align: right;
+	}
+
+	/* P3-B: replay toolbar */
+	.replay-toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		padding: 10px 12px;
+		border-top: 1px solid var(--cf-border);
+	}
+	.replay-toolbar[hidden] { display: none; }
+	.replay-btn {
+		width: 36px;
+		height: 36px;
+		border: 1px solid var(--cf-border);
+		border-radius: 8px;
+		background: var(--cf-bg-100);
+		color: var(--cf-text);
+		cursor: pointer;
+		font-size: 14px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.replay-btn:hover { border-color: var(--cf-orange); color: var(--cf-orange); }
+	.replay-btn:disabled { opacity: 0.4; cursor: default; }
+	.replay-counter {
+		font-family: var(--font-mono);
+		font-size: 12px;
+		color: var(--cf-text-muted);
+		min-width: 56px;
+		text-align: center;
+	}
+	/* Highlight the active move in the move list during replay */
+	:global(#move-list .move-cell.is-replay-cursor) {
+		background: var(--cf-orange-light);
+		color: var(--cf-text);
+		border-radius: 4px;
+	}
+
+	/* UX-12: resign confirm dialog */
+	.resign-confirm {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		background: rgba(82, 16, 0, 0.38);
+		backdrop-filter: blur(8px);
+	}
+	.resign-confirm[hidden] { display: none; }
+	.resign-confirm__card {
+		width: min(100%, 400px);
+		padding: 32px;
+		border: 1px solid var(--cf-border);
+		border-radius: 20px;
+		background: var(--cf-bg-100);
+		text-align: center;
+		box-shadow: var(--shadow-lg);
+	}
+	.resign-confirm__card h3 { margin: 0 0 10px; font-size: 22px; font-weight: 500; letter-spacing: -0.03em; }
+	.resign-confirm__card p { margin: 0 0 20px; color: var(--cf-text-muted); font-size: 14px; }
+	.resign-confirm__actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+	/* UX-3: SAN/UCI text move input */
+	.move-input-row {
+		display: flex;
+		gap: 8px;
+		margin-top: 8px;
+	}
+
+	.move-text-input {
+		flex: 1;
+		min-height: 40px;
+		padding: 0 12px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		color: var(--cf-text);
+		font-size: 14px;
+	}
+
+	.move-text-input:focus {
+		outline: 2px solid var(--cf-orange);
+		outline-offset: 1px;
+	}
+
+	.move-text-submit {
+		min-width: 44px;
+	}
+
+	/* QR-12: under-promotion picker */
+	.promo-picker {
+		position: fixed;
+		inset: 0;
+		z-index: 110;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		background: rgba(82, 16, 0, 0.5);
+		backdrop-filter: blur(8px);
+	}
+
+	.promo-picker[hidden] { display: none; }
+
+	.promo-picker__label {
+		margin: 0 0 16px;
+		font-size: 16px;
+		font-weight: 500;
+		text-align: center;
+	}
+
+	.promo-picker__buttons {
+		display: flex;
+		gap: 12px;
+		background: var(--cf-bg-100);
+		padding: 20px 24px;
+		border-radius: 20px;
+		border: 1px solid var(--cf-border);
+		flex-direction: column;
+	}
+
+	.promo-btn {
+		font-size: 48px;
+		width: 72px;
+		height: 72px;
+		border: 1px solid var(--cf-border);
+		border-radius: 14px;
+		background: var(--cf-bg-200);
+		cursor: pointer;
+		transition: background 150ms ease;
+	}
+
+	.promo-btn:hover { background: var(--cf-orange-light); border-color: var(--cf-orange); }
+
+	/* UX-4: reconnect banner */
+	.reconnect-banner {
+		padding: 10px 16px;
+		border-radius: 10px;
+		background: var(--cf-warning);
+		color: #521000;
+		font-size: 13px;
+		font-weight: 500;
+		text-align: center;
+	}
+	.reconnect-banner[hidden] { display: none; }
+
+	/* UX-9: clock urgency */
+	:global(.clock-warning) { color: var(--cf-warning) !important; }
+	:global(.clock-urgent) { color: var(--cf-error) !important; }
+
+	/* UX-9: active-turn ring on player card */
+	:global([data-player-card].is-active-turn) {
+		border-color: var(--cf-orange);
+		box-shadow: 0 0 0 2px var(--cf-orange-light);
+	}
+
+	/* ── Tablet (601–980px): single-column, board first ── */
+	@media (max-width: 980px) {
+		.match-page {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			max-width: 640px;
+			padding: 16px 12px 48px;
+		}
+	}
+
+	/* P5-D: Colo toast — appears bottom-right, auto-dismisses after 4 s. */
+	:global(.colo-toast) {
+		position: fixed;
+		bottom: 20px;
+		right: 20px;
+		z-index: 9999;
+		padding: 8px 14px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		font-family: var(--font-mono);
+		font-size: 12px;
+		color: var(--cf-text-muted);
+		box-shadow: var(--shadow-lg);
+		opacity: 0;
+		transform: translateY(8px);
+		transition: opacity 0.3s ease, transform 0.3s ease;
+		pointer-events: none;
+	}
+
+	:global(.colo-toast--visible) {
+		opacity: 1;
+		transform: translateY(0);
+	}
+</style>

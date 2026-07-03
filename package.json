@@ -1,0 +1,41 @@
+{
+	"name": "cloudflare-chess",
+	"type": "module",
+	"version": "0.0.1",
+	"engines": {
+		"node": ">=22.12.0"
+	},
+	"scripts": {
+		"dev": "wrangler types && astro dev",
+		"build": "wrangler types && astro build",
+		"preview": "astro build && astro preview",
+		"astro": "astro",
+		"generate-types": "wrangler types",
+		"deploy": "wrangler types && astro build && wrangler deploy",
+		"cf-typegen": "wrangler types",
+		"test": "npm run test:unit && npm run test:workers",
+		"test:unit": "vitest run --config vitest.config.ts",
+		"test:workers": "vitest run --config vitest.workers.config.ts",
+		"test:watch": "vitest --config vitest.config.ts",
+		"check": "astro check && npm run test:unit && npm run test:workers"
+	},
+	"dependencies": {
+		"@astrojs/cloudflare": "^13.5.1",
+		"@cloudflare/puppeteer": "^1.1.0",
+		"@fontsource/inter": "^5.2.8",
+		"@fontsource/jetbrains-mono": "^5.2.8",
+		"astro": "^6.3.3",
+		"chess.js": "^1.4.0",
+		"cm-chessboard": "^8.12.7"
+	},
+	"devDependencies": {
+		"@astrojs/check": "^0.9.9",
+		"@cloudflare/vitest-pool-workers": "^0.16.20",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.9",
+		"wrangler": "^4.91.0"
+	},
+	"overrides": {
+		"vite": "^7"
+	}
+}

@@ -1,0 +1,142 @@
+---
+interface Props {
+	position: 'white' | 'black';
+	name: string;
+	clockMs: number;
+	rating?: number;
+	ratingDelta?: number;
+	games?: number;
+	isBot?: boolean;
+	online?: boolean;
+}
+
+const { position, name, clockMs, rating = 1200, ratingDelta = 0, games = 0, isBot = false, online = false } = Astro.props;
+const id = `${position}-clock`;
+const ratingId = `${position}-rating`;
+const deltaId = `${position}-rating-delta`;
+function formatClock(ms: number) {
+	const total = Math.max(0, Math.ceil(ms / 1000));
+	const min = Math.floor(total / 60);
+	const sec = total % 60;
+	return `${min}:${String(sec).padStart(2, '0')}`;
+}
+---
+
+<article class="player-card" data-player-card={position}>
+	<div>
+		<p class="player-card__label">{position}</p>
+		<h2>{name}</h2>
+		<p class="player-card__rating">
+			<span id={ratingId}>{rating}</span> Elo
+			<span id={deltaId} class:list={['rating-delta', ratingDelta > 0 && 'positive', ratingDelta < 0 && 'negative']}>
+				{ratingDelta === 0 ? '' : `${ratingDelta > 0 ? '+' : ''}${ratingDelta}`}
+			</span>
+			{isBot ? <span class="rating-pill">Bot</span> : games < 10 ? <span class="rating-pill">Provisional</span> : null}
+		</p>
+	</div>
+	<div class="player-card__right">
+		<span class="player-card__presence-wrap" aria-label={online ? 'Online' : 'Offline'}>
+			<span class:list={['player-card__presence', online && 'is-online']} aria-hidden="true"></span>
+			<span class="sr-only">{online ? '(online)' : '(offline)'}</span>
+		</span>
+		<time id={id} class="player-card__clock" data-ms={clockMs}>{formatClock(clockMs)}</time>
+	</div>
+</article>
+
+<style>
+	.player-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		padding: 14px 16px;
+		border: 1px solid var(--cf-border);
+		border-radius: 14px;
+		background: var(--cf-bg-200);
+	}
+
+	.player-card__label {
+		margin: 0 0 2px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--cf-text-muted);
+	}
+
+	.player-card__rating {
+		margin: 5px 0 0;
+		font-family: var(--font-mono);
+		font-size: 12px;
+		color: var(--cf-text-muted);
+	}
+
+	.rating-delta {
+		margin-left: 6px;
+	}
+
+	.rating-delta.positive {
+		color: var(--cf-success);
+	}
+
+	.rating-delta.negative {
+		color: var(--cf-error);
+	}
+
+	.rating-pill {
+		display: inline-flex;
+		margin-left: 6px;
+		padding: 2px 6px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		font-size: 10px;
+		color: var(--cf-orange);
+	}
+
+	h2 {
+		margin: 0;
+		font-size: 18px;
+		font-weight: 500;
+		letter-spacing: -0.02em;
+	}
+
+	.player-card__right {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.player-card__presence-wrap {
+		display: flex;
+		align-items: center;
+	}
+
+	.player-card__presence {
+		width: 9px;
+		height: 9px;
+		border-radius: 9999px;
+		background: var(--cf-text-subtle);
+	}
+
+	.player-card__presence.is-online {
+		background: var(--cf-success);
+		box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+	}
+
+	.player-card__clock {
+		font-family: var(--font-mono);
+		font-size: 28px;
+		font-weight: 500;
+		color: var(--cf-text);
+	}
+
+	.player-card.is-ended {
+		background: var(--cf-bg-300);
+		border-style: dashed;
+	}
+
+	.player-card.is-ended .player-card__clock {
+		color: var(--cf-text-muted);
+	}
+</style>

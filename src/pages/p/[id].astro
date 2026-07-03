@@ -1,0 +1,95 @@
+---
+import { env } from 'cloudflare:workers';
+import BackgroundLines from '../../components/BackgroundLines.astro';
+import Button from '../../components/Button.astro';
+import Card from '../../components/Card.astro';
+import Footer from '../../components/Footer.astro';
+import Header from '../../components/Header.astro';
+import Layout from '../../layouts/Layout.astro';
+
+export const prerender = false;
+
+const id = Astro.params.id ?? '';
+const bundle = await env.MATCHMAKER.getByName('global').getProfileBundle(id, 10);
+if (!bundle) Astro.response.status = 404;
+const profile = bundle?.profile;
+const recent = bundle?.recent ?? [];
+const winRate = profile?.games ? Math.round((profile.wins / profile.games) * 100) : 0;
+---
+
+<Layout title={profile ? `${id} profile` : 'Player not found'}>
+	<BackgroundLines />
+	<Header />
+	<main class="profile-page">
+		{profile ? (
+			<>
+				<Card class="profile-hero">
+					<div>
+						<p class="eyebrow">Public profile</p>
+						<h1>{profile.playerId}</h1>
+						<p>{profile.username} · {profile.isProvisional ? 'Provisional' : 'Established'} rating</p>
+					</div>
+					<div class="rating-block">
+						<span>Rating</span>
+						<strong>{profile.rating}</strong>
+						<small>Peak {profile.peakRating}</small>
+					</div>
+				</Card>
+				<div class="profile-grid">
+					<Card class="profile-card">
+						<h2>Record</h2>
+						<p><strong>{profile.wins}-{profile.losses}-{profile.draws}</strong> W-L-D</p>
+						<p>{profile.games} rated games · {winRate}% win rate</p>
+					</Card>
+					<Card class="profile-card">
+						<h2>Bot games</h2>
+						<p><strong>{profile.botWins}-{profile.botLosses}-{profile.botDraws}</strong> W-L-D</p>
+						<p>{profile.botGames} total · rating unchanged</p>
+					</Card>
+				</div>
+				<Card class="profile-card history-card">
+					<h2>Recent results</h2>
+					{recent.length ? (
+						<ul>
+							{recent.map((entry) => (
+								<li>
+									<span>{entry.opponentId}</span>
+									<strong>{entry.delta > 0 ? `+${entry.delta}` : entry.delta}</strong>
+									<em>{entry.result}{entry.isBot ? ' · bot' : ''}</em>
+								</li>
+							))}
+						</ul>
+					) : <p>No rated games yet.</p>}
+				</Card>
+			</>
+		) : (
+			<Card class="profile-hero">
+				<p class="eyebrow">404</p>
+				<h1>Player not found.</h1>
+				<p>No profile exists for that ID.</p>
+				<Button href="/leaderboard">Leaderboard</Button>
+			</Card>
+		)}
+	</main>
+	<Footer />
+</Layout>
+
+<style>
+	.profile-page { max-width: var(--container-xl); margin: 0 auto; padding: 48px 16px 0; }
+	:global(.profile-hero) { display: flex; justify-content: space-between; gap: 24px; padding: 36px; align-items: end; }
+	.eyebrow { margin: 0 0 12px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--cf-orange); }
+	h1 { margin: 0; font-size: clamp(34px, 6vw, 64px); line-height: 1; font-weight: 500; letter-spacing: -.05em; }
+	p { color: var(--cf-text-muted); line-height: 1.55; }
+	.rating-block { display: grid; gap: 2px; text-align: right; font-family: var(--font-mono); }
+	.rating-block span, .rating-block small { color: var(--cf-text-muted); font-size: 12px; }
+	.rating-block strong { color: var(--cf-orange); font-size: 54px; font-weight: 500; line-height: 1; }
+	.profile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 16px; }
+	:global(.profile-card) { padding: 24px; }
+	h2 { margin: 0 0 16px; font-size: 22px; font-weight: 500; letter-spacing: -.03em; }
+	.history-card { margin-top: 16px; }
+	ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+	li { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; padding: 10px 0; border-top: 1px solid var(--cf-border-light); font-size: 14px; }
+	li strong { font-family: var(--font-mono); color: var(--cf-orange); }
+	li em { color: var(--cf-text-muted); font-style: normal; }
+	@media (max-width: 760px) { :global(.profile-hero), .profile-grid { display: grid; grid-template-columns: 1fr; } .rating-block { text-align: left; } }
+</style>

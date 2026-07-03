@@ -1,0 +1,204 @@
+---
+// P5-C: Opening Explorer — interactive position explorer built from the game archive.
+import { env } from 'cloudflare:workers';
+import BackgroundLines from '../components/BackgroundLines.astro';
+import Board from '../components/chess/Board.astro';
+import Card from '../components/Card.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import Layout from '../layouts/Layout.astro';
+import { getContinuations } from '../lib/d1/positions';
+
+export const prerender = false;
+
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const fen = Astro.url.searchParams.get('fen') ?? START_FEN;
+
+let continuations: Awaited<ReturnType<typeof getContinuations>> = [];
+try {
+	continuations = await getContinuations(env.DB, fen, 10);
+} catch { /* DB not yet populated */ }
+
+const totalGames = continuations.reduce((s, c) => s + c.count, 0);
+---
+
+<Layout title="Opening Explorer — Cloudflare Chess">
+	<BackgroundLines />
+	<Header />
+	<main id="main-content" class="explore-page">
+		<div class="explore-heading">
+			<p class="eyebrow">Opening Explorer</p>
+			<h1>Explore positions.</h1>
+			<p>Position data from games played on Cloudflare Chess. Click a continuation to advance.</p>
+		</div>
+		<div class="explore-layout">
+			<section class="explore-board">
+				<Board />
+				<div class="explore-fen">
+					<input id="fen-input" type="text" value={fen} aria-label="Position FEN" class="fen-input" />
+					<button type="button" id="fen-load" class="btn-secondary">Load FEN</button>
+					<button type="button" id="fen-reset" class="btn-secondary">Reset</button>
+				</div>
+			</section>
+			<aside class="explore-sidebar">
+				<Card class="continuations-card">
+					<h2>Continuations</h2>
+					{totalGames > 0 ? (
+						<p class="total-games">{totalGames} game{totalGames !== 1 ? 's' : ''} in database</p>
+					) : (
+						<p class="no-data">No games indexed yet. Play some rated games to populate the explorer.</p>
+					)}
+					<div id="continuations-list" class="continuations-list">
+						{continuations.map((c) => (
+							<button type="button" class="continuation-row" data-uci={c.continuation}>
+								<span class="cont-move">{c.continuation}</span>
+								<span class="cont-bar-wrap">
+									<span class="cont-bar" style={`width:${c.winPct}%`}></span>
+								</span>
+								<span class="cont-stats">
+									<span class="cont-count">{c.count}</span>
+									<span class="cont-pct">{c.winPct}%W</span>
+								</span>
+							</button>
+						))}
+					</div>
+				</Card>
+				<div class="nav-buttons">
+					<button type="button" id="explore-back" class="btn-secondary" disabled>← Back</button>
+					<button type="button" id="explore-start" class="btn-secondary">Start position</button>
+				</div>
+			</aside>
+		</div>
+	</main>
+	<Footer />
+	<script>
+		import { Chess } from 'chess.js';
+		import { BORDER_TYPE, COLOR, Chessboard, INPUT_EVENT_TYPE, PIECES_FILE_TYPE } from 'cm-chessboard/src/Chessboard.js';
+
+		const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+		const boardEl = document.querySelector<HTMLElement>('#chess-board');
+		const fenInput = document.querySelector<HTMLInputElement>('#fen-input');
+		const contList = document.querySelector<HTMLElement>('#continuations-list');
+
+		let history: string[] = [START_FEN];
+		let currentFen = START_FEN;
+
+		const board = boardEl ? new Chessboard(boardEl, {
+			position: currentFen,
+			orientation: COLOR.white,
+			assetsUrl: '/cm-chessboard/',
+			style: {
+				cssClass: 'default',
+				showCoordinates: true,
+				borderType: BORDER_TYPE.none,
+				pieces: { type: PIECES_FILE_TYPE.svgSprite, file: 'pieces/staunty.svg', tileSize: 40 },
+				animationDuration: 180,
+			},
+		}) : null;
+
+		async function loadPosition(fen: string, pushHistory = true) {
+			if (pushHistory && fen !== currentFen) history.push(fen);
+			currentFen = fen;
+			board?.setPosition(fen, true);
+			if (fenInput) fenInput.value = fen;
+			// Update URL without reload
+			const url = new URL(location.href);
+			url.searchParams.set('fen', fen);
+			history.length > 1 && window.history.replaceState(null, '', url.toString());
+			// Fetch continuations
+			const backBtn = document.getElementById('explore-back') as HTMLButtonElement | null;
+			if (backBtn) backBtn.disabled = history.length <= 1;
+			try {
+				const res = await fetch(`/api/explore?fen=${encodeURIComponent(fen)}`);
+				if (!res.ok) return;
+				const data = await res.json() as { continuations: Array<{ continuation: string; count: number; winPct: number }> };
+				renderContinuations(data.continuations);
+			} catch { /* ignore */ }
+		}
+
+		function renderContinuations(conts: Array<{ continuation: string; count: number; winPct: number }>) {
+			if (!contList) return;
+			const total = conts.reduce((s, c) => s + c.count, 0);
+			if (!conts.length) {
+				contList.innerHTML = '<p class="no-data">No games from this position.</p>';
+				return;
+			}
+			contList.innerHTML = conts.map((c) => `
+				<button type="button" class="continuation-row" data-uci="${c.continuation}">
+					<span class="cont-move">${c.continuation}</span>
+					<span class="cont-bar-wrap"><span class="cont-bar" style="width:${c.winPct}%"></span></span>
+					<span class="cont-stats"><span class="cont-count">${c.count}</span><span class="cont-pct">${c.winPct}%W</span></span>
+				</button>
+			`).join('');
+			contList.querySelectorAll<HTMLButtonElement>('[data-uci]').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					const uci = btn.dataset.uci!;
+					try {
+						const chess = new Chess(currentFen);
+						const from = uci.slice(0, 2);
+						const to = uci.slice(2, 4);
+						const promo = uci[4] as 'q' | 'r' | 'b' | 'n' | undefined;
+						const move = chess.move(promo ? { from, to, promotion: promo } : { from, to });
+						if (move) loadPosition(chess.fen());
+					} catch { /* invalid */ }
+				});
+			});
+		}
+
+		// Wire buttons
+		document.getElementById('fen-load')?.addEventListener('click', () => {
+			const fen = fenInput?.value.trim();
+			if (fen) loadPosition(fen, false);
+		});
+		fenInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('fen-load')?.click(); });
+		document.getElementById('fen-reset')?.addEventListener('click', () => { history = [START_FEN]; loadPosition(START_FEN, false); });
+		document.getElementById('explore-start')?.addEventListener('click', () => { history = [START_FEN]; loadPosition(START_FEN, false); });
+		document.getElementById('explore-back')?.addEventListener('click', () => {
+			if (history.length > 1) { history.pop(); loadPosition(history[history.length - 1], false); }
+		});
+
+		// Wire existing continuation buttons rendered by Astro
+		contList?.querySelectorAll<HTMLButtonElement>('[data-uci]').forEach((btn) => {
+			btn.addEventListener('click', () => {
+				const uci = btn.dataset.uci!;
+				try {
+					const chess = new Chess(currentFen);
+					const from = uci.slice(0, 2); const to = uci.slice(2, 4);
+					const promo = uci[4] as 'q' | 'r' | 'b' | 'n' | undefined;
+					const move = chess.move(promo ? { from, to, promotion: promo } : { from, to });
+					if (move) loadPosition(chess.fen());
+				} catch { /* invalid */ }
+			});
+		});
+	</script>
+</Layout>
+
+<style>
+	.explore-page { max-width: var(--container-xl); margin: 0 auto; padding: 48px 16px 0; }
+	.explore-heading { max-width: 760px; margin-bottom: 32px; }
+	.eyebrow { margin: 0 0 10px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--cf-orange); }
+	h1 { margin: 0 0 12px; font-size: clamp(40px, 7vw, 72px); line-height: .95; font-weight: 500; letter-spacing: -.055em; }
+	.explore-heading p { color: var(--cf-text-muted); font-size: 15px; }
+	.explore-layout { display: grid; grid-template-columns: minmax(0, 640px) minmax(280px, 380px); column-gap: 24px; row-gap: 16px; align-items: start; }
+	.explore-board { display: grid; gap: 12px; }
+	.explore-fen { display: flex; gap: 8px; }
+	.fen-input { flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--cf-border); border-radius: 9999px; background: var(--cf-bg-200); color: var(--cf-text); font-family: var(--font-mono); font-size: 12px; }
+	.fen-input:focus { outline: 2px solid var(--cf-orange); outline-offset: 1px; }
+	.btn-secondary { min-height: 40px; padding: 0 16px; border: 1px solid var(--cf-border); border-radius: 9999px; background: var(--cf-bg-200); color: var(--cf-text); font-size: 13px; cursor: pointer; }
+	.btn-secondary:hover { border-color: var(--cf-orange); color: var(--cf-orange); }
+	.btn-secondary:disabled { opacity: 0.4; cursor: default; }
+	:global(.continuations-card) { padding: 20px; }
+	h2 { margin: 0 0 8px; font-size: 20px; font-weight: 500; letter-spacing: -.03em; }
+	.total-games { margin: 0 0 14px; font-family: var(--font-mono); font-size: 12px; color: var(--cf-text-muted); }
+	.no-data { color: var(--cf-text-muted); font-size: 14px; margin: 0; }
+	.continuations-list { display: grid; gap: 4px; }
+	.continuation-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--cf-border); border-radius: 10px; background: var(--cf-bg-100); cursor: pointer; text-align: left; font: inherit; }
+	.continuation-row:hover { border-color: var(--cf-orange); background: var(--cf-orange-light); }
+	.cont-move { font-family: var(--font-mono); font-size: 13px; font-weight: 500; min-width: 52px; color: var(--cf-text); }
+	.cont-bar-wrap { flex: 1; height: 8px; background: var(--cf-bg-300); border-radius: 4px; overflow: hidden; }
+	.cont-bar { height: 100%; background: var(--cf-orange); border-radius: 4px; }
+	.cont-stats { display: flex; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--cf-text-muted); min-width: 70px; justify-content: flex-end; }
+	.cont-count { color: var(--cf-text); }
+	.nav-buttons { display: flex; gap: 8px; margin-top: 12px; }
+	@media (max-width: 900px) { .explore-layout { grid-template-columns: 1fr; } }
+</style>

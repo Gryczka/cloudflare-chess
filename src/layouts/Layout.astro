@@ -1,0 +1,174 @@
+---
+import '../lib/design/fonts.css';
+import '../lib/design/tokens.css';
+import 'cm-chessboard/assets/chessboard.css';
+
+interface Props {
+	title?: string;
+	description?: string;
+	// P4-F: optional per-page OG image (e.g. recap screenshot)
+	ogImage?: string;
+}
+
+const {
+	title = 'Cloudflare Chess',
+	description = 'Realtime chess powered by Cloudflare Workers and Durable Objects.',
+	ogImage = '/img/og-card.png',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="generator" content={Astro.generator} />
+		<meta name="description" content={description} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content={ogImage} />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage} />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<script is:inline>
+			(() => {
+				if (localStorage.getItem('cf-chess-theme') === 'dark') {
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
+		<title>{title}</title>
+	</head>
+	<body>
+		<a class="skip-link" href="#main-content">Skip to main content</a>
+		<slot />
+
+		{/* UX-6: Recovery-key save dialog — shown once at enroll */}
+		<div id="recovery-overlay" class="recovery-overlay" role="dialog" aria-modal="true" aria-labelledby="recovery-title" hidden>
+			<div class="recovery-card">
+				<p class="recovery-eyebrow">One-time recovery key</p>
+				<h2 id="recovery-title">Save your key</h2>
+				<p class="recovery-desc">This is the only time this key will be shown. Copy or download it now — you'll need it to restore your account on another device or after clearing cookies.</p>
+				<code id="recovery-key-text" class="recovery-key"></code>
+				<div class="recovery-actions">
+					<button type="button" id="recovery-copy" class="recovery-btn-primary">Copy key</button>
+					<button type="button" id="recovery-download" class="recovery-btn-secondary">Download .txt</button>
+				</div>
+				<button type="button" id="recovery-close" class="recovery-close" aria-label="Close">I've saved it ✓</button>
+			</div>
+		</div>
+
+		<script is:inline>
+			window.__showRecoveryKey = function(secret) {
+				var overlay = document.getElementById('recovery-overlay');
+				var keyEl = document.getElementById('recovery-key-text');
+				if (!overlay || !keyEl) { alert('Save your recovery key: ' + secret); return; }
+				keyEl.textContent = secret;
+				overlay.hidden = false;
+				document.getElementById('recovery-copy')?.focus();
+
+				document.getElementById('recovery-copy')?.addEventListener('click', function() {
+					navigator.clipboard.writeText(secret).then(function() {
+						var btn = document.getElementById('recovery-copy');
+						if (btn) { btn.textContent = 'Copied!'; setTimeout(function() { btn.textContent = 'Copy key'; }, 1800); }
+					});
+				}, { once: false });
+
+				document.getElementById('recovery-download')?.addEventListener('click', function() {
+					var blob = new Blob(['Cloudflare Chess recovery key\n' + secret + '\n\nKeep this safe. Use it at /login to restore your account.'], { type: 'text/plain' });
+					var url = URL.createObjectURL(blob);
+					var a = document.createElement('a'); a.href = url; a.download = 'cf-chess-key.txt'; a.click();
+					URL.revokeObjectURL(url);
+				}, { once: false });
+
+				function closeRecovery() {
+					overlay.hidden = true;
+					document.getElementById('recovery-close')?.removeEventListener('click', closeRecovery);
+				}
+				document.getElementById('recovery-close')?.addEventListener('click', closeRecovery);
+				overlay.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeRecovery(); });
+			};
+		</script>
+	</body>
+</html>
+
+<style>
+	.skip-link {
+		position: absolute;
+		left: -9999px;
+		top: 4px;
+		z-index: 9999;
+		padding: 8px 16px;
+		background: var(--cf-orange);
+		color: #fff;
+		font-weight: 600;
+		border-radius: 4px;
+		text-decoration: none;
+	}
+	.skip-link:focus {
+		left: 16px;
+	}
+
+	/* UX-6: recovery key dialog */
+	.recovery-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 200;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		background: rgba(82, 16, 0, 0.5);
+		backdrop-filter: blur(10px);
+	}
+	.recovery-overlay[hidden] { display: none; }
+	.recovery-card {
+		width: min(100%, 560px);
+		padding: 40px;
+		border: 1px solid var(--cf-border);
+		border-radius: 24px;
+		background: var(--cf-bg-100);
+		box-shadow: 0 24px 80px rgba(82, 16, 0, 0.22);
+		text-align: center;
+	}
+	.recovery-eyebrow {
+		margin: 0 0 12px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--cf-orange);
+	}
+	.recovery-card h2 { margin: 0 0 16px; font-size: 32px; font-weight: 500; letter-spacing: -0.04em; }
+	.recovery-desc { margin: 0 0 20px; color: var(--cf-text-muted); line-height: 1.55; font-size: 14px; }
+	.recovery-key {
+		display: block;
+		padding: 14px 16px;
+		margin: 0 0 20px;
+		border-radius: 12px;
+		background: var(--cf-bg-300);
+		border: 1px solid var(--cf-border);
+		font-family: var(--font-mono);
+		font-size: 13px;
+		color: var(--cf-text);
+		word-break: break-all;
+		user-select: all;
+	}
+	.recovery-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+	.recovery-btn-primary {
+		min-height: 44px; padding: 0 24px; border: 0; border-radius: 9999px;
+		background: var(--cf-orange); color: #fff; font-weight: 500; cursor: pointer;
+	}
+	.recovery-btn-secondary {
+		min-height: 44px; padding: 0 20px;
+		border: 1px solid var(--cf-border); border-radius: 9999px;
+		background: var(--cf-bg-200); color: var(--cf-text); font-weight: 500; cursor: pointer;
+	}
+	.recovery-close {
+		display: block; width: 100%; padding: 12px; border: 1px solid var(--cf-border);
+		border-radius: 12px; background: transparent; color: var(--cf-text-muted);
+		font-size: 14px; cursor: pointer;
+	}
+	.recovery-close:hover { color: var(--cf-text); background: var(--cf-bg-300); }
+</style>

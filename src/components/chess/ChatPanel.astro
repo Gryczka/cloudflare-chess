@@ -1,0 +1,104 @@
+<section class="chat-panel" aria-labelledby="chat-title">
+	<div class="chat-panel__header">
+		<h2 id="chat-title">Match chat</h2>
+		<span id="spectator-count" class="watching-pill">0 watching</span>
+	</div>
+	<div id="chat-log" class="chat-log" aria-live="polite"></div>
+	<form id="chat-form" class="chat-form">
+		<label class="sr-only" for="chat-input">Chat message</label>
+		<input id="chat-input" maxlength="280" placeholder="Type a message..." autocomplete="off" />
+		<button type="submit">Send</button>
+	</form>
+</section>
+
+<style>
+	.chat-panel {
+		border: 1px solid var(--cf-border);
+		border-radius: 16px;
+		background: var(--cf-bg-200);
+		overflow: hidden;
+	}
+
+	.chat-panel__header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 16px;
+		border-bottom: 1px solid var(--cf-border-light);
+	}
+
+	h2 {
+		margin: 0;
+		font-size: 16px;
+		font-weight: 500;
+	}
+
+	.watching-pill {
+		padding: 5px 10px;
+		border-radius: 9999px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		background: var(--cf-bg-300);
+		color: var(--cf-text-muted);
+	}
+
+	.chat-log {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-height: 160px;
+		max-height: 260px;
+		padding: 16px;
+		overflow: auto;
+	}
+
+	.chat-log :global(.chat-line) {
+		font-size: 14px;
+		line-height: 1.45;
+		color: var(--cf-text);
+	}
+
+	.chat-log :global(.chat-line[data-role='spectator']) {
+		color: var(--cf-text-muted);
+		font-style: italic;
+	}
+
+	.chat-log :global(strong) {
+		font-weight: 500;
+		color: var(--cf-orange);
+	}
+
+	.chat-form {
+		display: flex;
+		gap: 8px;
+		padding: 12px;
+		border-top: 1px solid var(--cf-border-light);
+	}
+
+	.chat-form input {
+		min-width: 0;
+		flex: 1;
+		padding: 12px;
+		border: 1px solid var(--cf-border);
+		border-radius: 10px;
+		background: var(--cf-bg-100);
+		color: var(--cf-text);
+		outline: none;
+	}
+
+	.chat-form input:focus {
+		border-color: var(--cf-orange);
+		box-shadow: 0 0 0 3px rgba(255, 72, 1, 0.1);
+	}
+
+	.chat-form button {
+		padding: 0 18px;
+		border: 0;
+		border-radius: 9999px;
+		background: var(--cf-orange);
+		color: var(--cf-bg-100);
+		font-weight: 500;
+		cursor: pointer;
+	}
+</style>

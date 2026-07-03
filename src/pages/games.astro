@@ -1,0 +1,141 @@
+---
+// P5-B: Spectator TV — live games lobby page.
+import { env } from 'cloudflare:workers';
+import BackgroundLines from '../components/BackgroundLines.astro';
+import Card from '../components/Card.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import Layout from '../layouts/Layout.astro';
+import type { LobbyEntry } from '../lib/durable-objects/game-lobby';
+
+export const prerender = false;
+
+let games: LobbyEntry[] = [];
+let activeCount = 0;
+let spectatorCount = 0;
+
+try {
+	const lobby = env.GAME_LOBBY.getByName('global');
+	const [list, stats] = await Promise.all([lobby.listGames(20), lobby.getStats()]);
+	games = list;
+	activeCount = stats.activeGames;
+	spectatorCount = stats.totalSpectators;
+} catch { /* lobby not yet active */ }
+
+function formatClock(ms: number) {
+	const min = Math.floor(ms / 60000);
+	return `${min}+0`;
+}
+---
+
+<Layout title="Live Games — Cloudflare Chess">
+	<BackgroundLines />
+	<Header />
+	<main id="main-content" class="games-page">
+		<div class="page-heading">
+			<p class="eyebrow">Spectator TV</p>
+			<h1>Watch live games.</h1>
+			<p>
+				<strong id="active-count">{activeCount}</strong> game{activeCount !== 1 ? 's' : ''} in progress ·
+				<strong id="spectator-count">{spectatorCount}</strong> watching
+			</p>
+		</div>
+
+		{games.length === 0 ? (
+			<Card class="no-games-card">
+				<p class="eyebrow">No games right now</p>
+				<h2>The board is quiet.</h2>
+				<p>Start a game and it will appear here for others to watch.</p>
+				<a href="/play" class="play-link">Find a match</a>
+			</Card>
+		) : (
+			<div class="games-grid" id="games-grid">
+				{games.map((game) => (
+					<a href={`/match/${game.matchId}`} class="game-card-link">
+						<Card class="game-card">
+							<div class="game-card__header">
+								<span class="eyebrow">{formatClock(game.timeControlMs)} · Move {Math.ceil(game.ply / 2)}</span>
+								{game.spectators > 0 && (
+									<span class="watching-badge">{game.spectators} watching</span>
+								)}
+							</div>
+							<div class="game-card__players">
+								<span class="player-name">{game.whiteName}</span>
+								<span class="vs">vs</span>
+								<span class="player-name">{game.blackName}</span>
+							</div>
+							<div class="game-card__ratings">
+								<span>{game.whiteRating}</span>
+								<span class="rating-sep">·</span>
+								<span>{game.blackRating}</span>
+							</div>
+						</Card>
+					</a>
+				))}
+			</div>
+		)}
+	</main>
+	<Footer />
+
+	<script is:inline>
+		// Auto-refresh the games list every 15 seconds.
+		const refreshGames = async () => {
+			try {
+				const res = await fetch('/api/lobby');
+				if (!res.ok) return;
+				const { games, stats } = await res.json();
+				const grid = document.getElementById('games-grid');
+				const activeEl = document.getElementById('active-count');
+				const spectEl = document.getElementById('spectator-count');
+				if (activeEl) activeEl.textContent = stats.activeGames;
+				if (spectEl) spectEl.textContent = stats.totalSpectators;
+				if (grid && games.length > 0) {
+					grid.innerHTML = games.map((g) => `
+						<a href="/match/${g.matchId}" class="game-card-link">
+							<div class="game-card">
+								<div class="game-card__header">
+									<span class="eyebrow">${Math.floor(g.timeControlMs / 60000)}+0 · Move ${Math.ceil(g.ply / 2)}</span>
+									${g.spectators > 0 ? `<span class="watching-badge">${g.spectators} watching</span>` : ''}
+								</div>
+								<div class="game-card__players">
+									<span class="player-name">${g.whiteName}</span>
+									<span class="vs">vs</span>
+									<span class="player-name">${g.blackName}</span>
+								</div>
+								<div class="game-card__ratings">
+									<span>${g.whiteRating}</span>
+									<span class="rating-sep">·</span>
+									<span>${g.blackRating}</span>
+								</div>
+							</div>
+						</a>
+					`).join('');
+				}
+			} catch { /* ignore */ }
+		};
+		window.setInterval(refreshGames, 15000);
+	</script>
+</Layout>
+
+<style>
+	.games-page { max-width: var(--container-xl); margin: 0 auto; padding: 48px 16px 0; }
+	.page-heading { max-width: 760px; margin-bottom: 32px; }
+	.eyebrow { margin: 0 0 10px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--cf-orange); }
+	h1 { margin: 0 0 12px; font-size: clamp(40px, 7vw, 72px); line-height: .95; font-weight: 500; letter-spacing: -.055em; }
+	.page-heading p { color: var(--cf-text-muted); font-size: 16px; }
+	.page-heading strong { color: var(--cf-text); }
+	:global(.no-games-card) { max-width: 480px; padding: 36px; text-align: center; }
+	.no-games-card h2 { margin: 0 0 12px; font-size: 28px; font-weight: 500; letter-spacing: -.03em; }
+	.no-games-card p { color: var(--cf-text-muted); margin: 0 0 20px; }
+	.play-link { display: inline-flex; min-height: 44px; align-items: center; padding: 0 24px; border-radius: 9999px; background: var(--cf-orange); color: #fff; font-weight: 500; text-decoration: none; }
+	.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+	.game-card-link { text-decoration: none; color: inherit; }
+	:global(.game-card) { padding: 20px; cursor: pointer; transition: border-color 150ms ease; }
+	:global(.game-card:hover) { border-color: var(--cf-orange); }
+	.game-card__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+	.watching-badge { font-family: var(--font-mono); font-size: 11px; color: var(--cf-orange); padding: 2px 8px; border: 1px solid var(--cf-orange); border-radius: 9999px; }
+	.game-card__players { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 500; }
+	.vs { color: var(--cf-text-muted); font-size: 12px; }
+	.game-card__ratings { margin-top: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--cf-text-muted); display: flex; gap: 6px; }
+	.rating-sep { color: var(--cf-border); }
+</style>

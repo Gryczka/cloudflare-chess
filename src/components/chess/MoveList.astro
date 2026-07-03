@@ -1,0 +1,61 @@
+<section class="side-panel move-panel" aria-labelledby="move-list-title">
+	<div class="panel-header">
+		<h2 id="move-list-title">Moves</h2>
+		<span id="game-status-pill" class="status-pill">Playing</span>
+	</div>
+	<ol id="move-list" class="move-list"></ol>
+</section>
+
+<style>
+	.side-panel {
+		border: 1px solid var(--cf-border);
+		border-radius: 16px;
+		background: var(--cf-bg-200);
+	}
+
+	.panel-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		padding: 16px;
+		border-bottom: 1px solid var(--cf-border-light);
+	}
+
+	h2 {
+		margin: 0;
+		font-size: 16px;
+		font-weight: 500;
+	}
+
+	.status-pill {
+		padding: 5px 10px;
+		border-radius: 9999px;
+		font-family: var(--font-mono);
+		font-size: 11px;
+		color: var(--cf-orange);
+		background: var(--cf-orange-light);
+	}
+
+	.move-list {
+		display: grid;
+		grid-template-columns: 44px 1fr 1fr;
+		gap: 0;
+		max-height: 260px;
+		margin: 0;
+		padding: 8px 0;
+		overflow: auto;
+		font-family: var(--font-mono);
+		font-size: 13px;
+		list-style: none;
+	}
+
+	.move-list :global(.move-cell) {
+		padding: 7px 12px;
+		border-bottom: 1px solid var(--cf-border-light);
+	}
+
+	.move-list :global(.move-number) {
+		color: var(--cf-text-muted);
+	}
+</style>

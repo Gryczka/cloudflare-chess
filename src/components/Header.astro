@@ -1,0 +1,392 @@
+---
+import Button from './Button.astro';
+---
+
+<header class="site-header">
+	<div class="site-header__inner">
+		<a class="brand" href="/" aria-label="Cloudflare Chess home">
+			<svg class="brand__cloud" viewBox="0 0 66 30" fill="currentColor" aria-hidden="true">
+				<path d="M52.688 13.028c-.22 0-.437.008-.654.015a.3.3 0 0 0-.102.024.37.37 0 0 0-.236.255l-.93 3.249c-.401 1.397-.252 2.687.422 3.634.618.876 1.646 1.39 2.894 1.45l5.045.306a.45.45 0 0 1 .435.41.5.5 0 0 1-.025.223.64.64 0 0 1-.547.426l-5.242.306c-2.848.132-5.912 2.456-6.987 5.29l-.378 1a.28.28 0 0 0 .248.382h18.054a.48.48 0 0 0 .464-.35c.32-1.153.482-2.344.48-3.54 0-7.22-5.79-13.072-12.933-13.072M44.807 29.578l.334-1.175c.402-1.397.253-2.687-.42-3.634-.62-.876-1.647-1.39-2.896-1.45l-23.665-.306a.47.47 0 0 1-.374-.199.5.5 0 0 1-.052-.434.64.64 0 0 1 .552-.426l23.886-.306c2.836-.131 5.9-2.456 6.975-5.29l1.362-3.6a.9.9 0 0 0 .04-.477C48.997 5.259 42.789 0 35.367 0c-6.842 0-12.647 4.462-14.73 10.665a6.92 6.92 0 0 0-4.911-1.374c-3.28.33-5.92 3.002-6.246 6.318a7.2 7.2 0 0 0 .18 2.472C4.3 18.241 0 22.679 0 28.133q0 .74.106 1.453a.46.46 0 0 0 .457.402h43.704a.57.57 0 0 0 .54-.418" />
+			</svg>
+			<span class="brand__text">
+				<span>Cloudflare</span>
+				<strong>Chess</strong>
+			</span>
+		</a>
+		<nav class="nav" aria-label="Main navigation">
+			<a href="/play">Play</a>
+			<a href="/games">Watch</a>
+			<a href="/bot">Bots</a>
+			<a href="/leaderboard">Leaderboard</a>
+			<a href="/#architecture">Architecture</a>
+		</nav>
+		<div class="header-actions">
+			<button class="hamburger" type="button" data-hamburger aria-controls="mobile-nav" aria-expanded="false" aria-label="Open navigation">☰</button>
+			<div class="account" data-account hidden>
+				<button class="account__chip" type="button" data-account-toggle aria-expanded="false">
+					<span data-account-id>player</span>
+					<strong data-account-rating>1200</strong>
+				</button>
+				<div class="account__menu" data-account-menu hidden>
+					<a href="/me">View profile</a>
+					<a href="/leaderboard">Leaderboard</a>
+					<button type="button" data-copy-account>Copy ID</button>
+					<button type="button" data-logout>Log out</button>
+				</div>
+			</div>
+			<a class="account-login" href="/login" data-account-login>Restore player card</a>
+			<button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode" aria-pressed="false">
+				<span class="theme-toggle__icon" aria-hidden="true"></span>
+				<span class="theme-toggle__text">Light</span>
+			</button>
+			<Button href="/play">Find a match</Button>
+		</div>
+	</div>
+	<nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation" hidden>
+		<a href="/play">Play</a>
+		<a href="/games">Watch</a>
+		<a href="/bot">Bots</a>
+		<a href="/leaderboard">Leaderboard</a>
+		<a href="/#architecture">Architecture</a>
+	</nav>
+</header>
+
+<script is:inline>
+	(() => {
+		const button = document.querySelector('[data-theme-toggle]');
+		if (!button) return;
+
+		const text = button.querySelector('.theme-toggle__text');
+		const setTheme = (theme) => {
+			document.documentElement.classList.toggle('dark', theme === 'dark');
+			localStorage.setItem('cf-chess-theme', theme);
+			button.setAttribute('aria-pressed', String(theme === 'dark'));
+			button.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+			if (text) text.textContent = theme === 'dark' ? 'Dark' : 'Light';
+		};
+
+		setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+		button.addEventListener('click', () => {
+			setTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+		});
+	})();
+</script>
+<script is:inline>
+	(() => {
+		const hamburger = document.querySelector('[data-hamburger]');
+		const mobileNav = document.getElementById('mobile-nav');
+		if (!hamburger || !mobileNav) return;
+
+		const openNav = () => {
+			mobileNav.hidden = false;
+			hamburger.setAttribute('aria-expanded', 'true');
+			hamburger.setAttribute('aria-label', 'Close navigation');
+			hamburger.textContent = '✕';
+		};
+
+		const closeNav = () => {
+			mobileNav.hidden = true;
+			hamburger.setAttribute('aria-expanded', 'false');
+			hamburger.setAttribute('aria-label', 'Open navigation');
+			hamburger.textContent = '☰';
+		};
+
+		hamburger.addEventListener('click', () => {
+			if (mobileNav.hidden) openNav();
+			else closeNav();
+		});
+
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape' && !mobileNav.hidden) {
+				closeNav();
+				hamburger.focus();
+			}
+		});
+
+		mobileNav.addEventListener('blur', () => {
+			window.setTimeout(() => {
+				if (!mobileNav.contains(document.activeElement)) closeNav();
+			}, 0);
+		}, true);
+	})();
+</script>
+<script>
+	import '../scripts/account.client.ts';
+</script>
+
+<style>
+	.site-header {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		border-bottom: 1px solid var(--cf-border);
+		background: color-mix(in srgb, var(--cf-bg-100) 92%, transparent);
+		backdrop-filter: blur(10px);
+	}
+
+	.site-header__inner {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		max-width: var(--container-xl);
+		margin: 0 auto;
+		padding: 14px 16px;
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: max-content;
+	}
+
+	.brand__cloud {
+		width: 42px;
+		color: var(--cf-orange);
+	}
+
+	.brand__text {
+		display: flex;
+		flex-direction: column;
+		line-height: 1;
+		letter-spacing: -0.03em;
+	}
+
+	.brand__text span {
+		font-size: 11px;
+		font-weight: 500;
+		text-transform: uppercase;
+	}
+
+	.brand__text strong {
+		font-size: 22px;
+		font-weight: 500;
+	}
+
+	.nav {
+		display: flex;
+		gap: 18px;
+		font-size: 14px;
+		color: var(--cf-text-muted);
+	}
+
+	.nav a:hover {
+		color: var(--cf-text);
+	}
+
+	.header-actions {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-width: max-content;
+	}
+
+	/* Hamburger hidden at desktop */
+	.hamburger {
+		display: none;
+	}
+
+	/* Mobile nav hidden at desktop */
+	.mobile-nav {
+		display: none !important;
+	}
+
+	.account {
+		position: relative;
+	}
+
+	.account-login {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 9px 13px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		font-size: 13px;
+		font-weight: 500;
+	}
+
+	.account-login[hidden] {
+		display: none;
+	}
+
+	.account__chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		max-width: 260px;
+		min-height: 44px;
+		padding: 9px 13px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		color: var(--cf-text);
+		cursor: pointer;
+	}
+
+	.account__chip span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-family: var(--font-mono);
+		font-size: 12px;
+	}
+
+	.account__chip strong {
+		color: var(--cf-orange);
+		font-family: var(--font-mono);
+		font-size: 12px;
+		font-weight: 500;
+	}
+
+	.account__menu {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 8px);
+		z-index: 40;
+		display: grid;
+		gap: 4px;
+		min-width: 190px;
+		padding: 8px;
+		border: 1px solid var(--cf-border);
+		border-radius: 14px;
+		background: var(--cf-bg-100);
+		box-shadow: var(--shadow-lg);
+	}
+
+	.account__menu[hidden] {
+		display: none;
+	}
+
+	.account__menu a,
+	.account__menu button {
+		padding: 9px 10px;
+		border: 0;
+		border-radius: 10px;
+		background: transparent;
+		color: var(--cf-text);
+		font: inherit;
+		font-size: 14px;
+		text-align: left;
+		cursor: pointer;
+	}
+
+	.account__menu a:hover,
+	.account__menu button:hover {
+		background: var(--cf-bg-300);
+		color: var(--cf-orange);
+	}
+
+	.theme-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		padding: 9px 13px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		color: var(--cf-text);
+		font-weight: 500;
+		cursor: pointer;
+	}
+
+	.theme-toggle:hover {
+		border-style: dashed;
+		border-color: var(--cf-orange);
+	}
+
+	.theme-toggle__icon {
+		position: relative;
+		width: 18px;
+		height: 18px;
+		border-radius: 9999px;
+		background: var(--cf-orange);
+		box-shadow: inset -6px -4px 0 rgba(255, 251, 245, 0.9);
+	}
+
+	:global(html.dark) .theme-toggle__icon {
+		background: var(--cf-bg-100);
+		box-shadow: 0 0 0 2px var(--cf-orange) inset, 8px -5px 0 -4px var(--cf-orange);
+	}
+
+	.theme-toggle__text {
+		font-size: 13px;
+	}
+
+	@media (max-width: 760px) {
+		.nav {
+			display: none;
+		}
+
+		.brand__text strong {
+			font-size: 18px;
+		}
+
+		.theme-toggle__text {
+			display: none;
+		}
+
+		.header-actions {
+			gap: 8px;
+		}
+
+		/* Show hamburger on mobile */
+		.hamburger {
+			display: flex;
+			width: 44px;
+			height: 44px;
+			align-items: center;
+			justify-content: center;
+			border: 1px solid var(--cf-border);
+			border-radius: 9999px;
+			background: var(--cf-bg-200);
+			color: var(--cf-text);
+			font-size: 18px;
+			cursor: pointer;
+		}
+
+		/* Mobile nav: shown when not hidden */
+		.mobile-nav:not([hidden]) {
+			display: flex !important;
+			flex-direction: column;
+			gap: 4px;
+			padding: 12px 16px 16px;
+			border-top: 1px solid var(--cf-border);
+			background: color-mix(in srgb, var(--cf-bg-100) 95%, transparent);
+		}
+
+		.mobile-nav[hidden] {
+			display: none !important;
+		}
+
+		.mobile-nav a {
+			display: block;
+			padding: 12px 10px;
+			border-radius: 10px;
+			font-size: 15px;
+			color: var(--cf-text-muted);
+		}
+
+		.mobile-nav a:hover {
+			background: var(--cf-bg-300);
+			color: var(--cf-text);
+		}
+
+		.account__chip {
+			max-width: 44px;
+			padding-inline: 12px;
+		}
+
+		.account-login {
+			display: none;
+		}
+
+		.account__chip strong {
+			display: none;
+		}
+	}
+</style>

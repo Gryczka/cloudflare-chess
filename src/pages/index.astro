@@ -1,0 +1,821 @@
+---
+import BackgroundLines from '../components/BackgroundLines.astro';
+import Button from '../components/Button.astro';
+import Card from '../components/Card.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Cloudflare Chess" description="Realtime chess powered by Cloudflare Workers and Durable Objects.">
+	<BackgroundLines />
+	<Header />
+	<main id="main-content" class="landing">
+		<section class="hero">
+			<div class="hero__copy">
+				<p class="eyebrow">Realtime chess on Cloudflare Workers</p>
+				<h1>A ranked chess arena at the edge.</h1>
+				<p class="hero__lead">
+					Match with a human, challenge Edge Bot when the queue is quiet, earn Elo, and let a Durable Object govern every board with authoritative state.
+				</p>
+				<div class="hero__actions">
+					<Button href="/play">Find a match</Button>
+					<Button href="#architecture" variant="ghost">View architecture</Button>
+				</div>
+				<div class="hero__badges" aria-label="Product highlights">
+					<span>Ranked Elo</span>
+					<span>Edge Bot</span>
+					<span>Live spectators</span>
+				</div>
+			</div>
+			<Card class="hero__media">
+				<img src="/img/hero.png" alt="Editorial illustration of chess pieces connected by an orange network trail" />
+				<div class="floating-card floating-card--top">
+					<span>Active match</span>
+					<strong>5+0 Blitz</strong>
+				</div>
+				<div class="floating-card floating-card--bottom">
+					<span>Elo swing</span>
+					<strong>+16</strong>
+				</div>
+			</Card>
+		</section>
+
+		<section class="stats-strip" aria-label="Platform stats">
+			<div>
+				<strong id="stat-games" aria-live="polite">—</strong>
+				<span>active games</span>
+			</div>
+			<div>
+				<strong id="stat-spectators" aria-live="polite">—</strong>
+				<span>spectators</span>
+			</div>
+			<div>
+				<strong id="stat-players" aria-live="polite">—</strong>
+				<span>registered players</span>
+			</div>
+			<div>
+				<strong>Elo</strong>
+				<span>after every result</span>
+			</div>
+		</section>
+
+		<section id="features" class="section">
+			<div class="section__heading">
+				<p class="eyebrow">Why Durable Objects</p>
+				<h2>One match, one authoritative coordinator.</h2>
+			</div>
+			<div class="feature-grid">
+				<Card class="feature-card">
+					<span class="feature-icon compute"></span>
+					<h3>Realtime moves</h3>
+					<p>Players and spectators connect over hibernatable WebSockets, so idle thinking time stays cost-efficient.</p>
+				</Card>
+				<Card class="feature-card">
+					<span class="feature-icon storage"></span>
+					<h3>Strong state</h3>
+					<p>Each match stores FEN, clocks, move history, and chat in SQLite-backed Durable Object storage.</p>
+				</Card>
+				<Card class="feature-card">
+					<span class="feature-icon ai"></span>
+					<h3>Server validation</h3>
+					<p>The browser proposes moves; chess.js inside the Durable Object decides what is legal.</p>
+				</Card>
+			</div>
+		</section>
+
+		<section id="architecture" class="section architecture">
+			<Card class="architecture__card">
+				<div>
+					<p class="eyebrow">Architecture</p>
+					<h2>Workers serve the frontend. Durable Objects own the game.</h2>
+					<p>
+						The Matchmaker Durable Object pairs players by time control, then creates a named ChessMatch Durable Object. That match instance becomes the single source of truth for the board, timers, chat, and spectators.
+					</p>
+				</div>
+				<div class="architecture-diagram" role="img" aria-label="Architecture flow: browser reaches the Astro Worker, which calls Matchmaker Durable Object, which initializes one ChessMatch Durable Object per game. ChessMatch owns WebSockets, game state, and SQLite persistence.">
+					<svg class="diagram-websocket-arc" viewBox="0 0 360 560" preserveAspectRatio="none" aria-hidden="true">
+						<path d="M330 66 C 382 154 382 300 330 392" />
+					</svg>
+					<span class="diagram-ws-label" aria-hidden="true">WebSocket after match</span>
+					<ol class="diagram-flow">
+						<li class="diagram-row">
+							<span class="diagram-tier">Client</span>
+							<div class="diagram-node diagram-node--browser">
+								<span>01</span>
+								<strong>Browser</strong>
+								<small>Astro pages, board UI, chat, clocks</small>
+							</div>
+						</li>
+						<li class="diagram-connector" aria-hidden="true">
+							<span>HTTP request</span>
+							<svg viewBox="0 0 24 64" preserveAspectRatio="none">
+								<line x1="12" y1="0" x2="12" y2="50" />
+								<path d="M6 48 L12 60 L18 48" />
+							</svg>
+						</li>
+						<li class="diagram-row">
+							<span class="diagram-tier">Edge runtime</span>
+							<div class="diagram-node diagram-node--worker">
+								<span>02</span>
+								<strong>Astro Worker</strong>
+								<small>Routes static assets, APIs, WebSocket upgrades</small>
+							</div>
+						</li>
+						<li class="diagram-connector" aria-hidden="true">
+							<span>RPC stub</span>
+							<svg viewBox="0 0 24 64" preserveAspectRatio="none">
+								<line x1="12" y1="0" x2="12" y2="50" />
+								<path d="M6 48 L12 60 L18 48" />
+							</svg>
+						</li>
+						<li class="diagram-row">
+							<span class="diagram-tier">Coordination</span>
+							<div class="diagram-node diagram-node--queue">
+								<span>03</span>
+								<strong>Matchmaker DO</strong>
+								<small>Pairs players, starts bot games, records Elo</small>
+							</div>
+						</li>
+						<li class="diagram-connector" aria-hidden="true">
+							<span>init(match)</span>
+							<svg viewBox="0 0 24 64" preserveAspectRatio="none">
+								<line x1="12" y1="0" x2="12" y2="50" />
+								<path d="M6 48 L12 60 L18 48" />
+							</svg>
+						</li>
+						<li class="diagram-row">
+							<span class="diagram-tier">Match state</span>
+							<div class="diagram-node diagram-node--hub">
+								<span>04</span>
+								<strong>ChessMatch DO</strong>
+								<small>Validates moves, owns clocks, broadcasts state</small>
+							</div>
+						</li>
+						<li class="diagram-connector" aria-hidden="true">
+							<span>persist + hibernate</span>
+							<svg viewBox="0 0 24 64" preserveAspectRatio="none">
+								<line x1="12" y1="0" x2="12" y2="50" />
+								<path d="M6 48 L12 60 L18 48" />
+							</svg>
+						</li>
+						<li class="diagram-row">
+							<span class="diagram-tier">Persistence</span>
+							<div class="diagram-node diagram-node--storage">
+								<span>05</span>
+								<strong>SQLite + WS</strong>
+								<small>Durable game records and hibernated sockets</small>
+							</div>
+						</li>
+					</ol>
+					<div class="diagram-legend" aria-hidden="true">
+						<span>Animated line = request flow</span>
+						<span>Pulsing node = active match</span>
+					</div>
+				</div>
+			</Card>
+		</section>
+
+		<section class="section arena">
+			<Card class="arena__card">
+				<div>
+					<p class="eyebrow">Competitive polish</p>
+					<h2>Every win has weight.</h2>
+					<p>
+						A final result triggers Elo updates, a dramatic result overlay, and confetti for winners. If no human is waiting, Edge Bot keeps the board alive.
+					</p>
+				</div>
+				<div class="result-preview" aria-hidden="true">
+					<span>Victory secured</span>
+					<strong>+16 Elo</strong>
+					<p>Checkmate · 1-0</p>
+				</div>
+			</Card>
+		</section>
+
+		<section class="final-cta">
+			<p class="eyebrow">Ready</p>
+			<h2>Take the next seat.</h2>
+			<p>Join the queue, or spin up a bot match instantly. The board is already waiting at the edge.</p>
+			<Button href="/play" variant="primary">Play now</Button>
+		</section>
+	</main>
+	<Footer />
+	<script>
+		// P5-D: Hydrate the live stats ribbon from /api/stats.
+		async function refreshStats() {
+			try {
+				const res = await fetch('/api/stats');
+				if (!res.ok) return;
+				const { activeGames, totalSpectators, totalPlayers } = await res.json() as {
+					activeGames: number; totalSpectators: number; totalPlayers: number;
+				};
+				const setEl = (id: string, val: number) => {
+					const el = document.getElementById(id);
+					if (el) el.textContent = String(val);
+				};
+				setEl('stat-games', activeGames);
+				setEl('stat-spectators', totalSpectators);
+				setEl('stat-players', totalPlayers);
+			} catch { /* ignore — static fallback stays visible */ }
+		}
+		refreshStats();
+		setInterval(refreshStats, 30_000);
+	</script>
+</Layout>
+
+<style>
+	.landing {
+		width: 100%;
+		max-width: var(--container-xl);
+		margin: 0 auto;
+		padding: 56px 16px 0;
+		overflow-x: clip;
+	}
+
+	.hero {
+		position: relative;
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+		gap: 46px;
+		align-items: center;
+		overflow: clip;
+		padding-block: 28px;
+	}
+
+	.hero::before {
+		content: '';
+		position: absolute;
+		inset: -20px 52% auto 0;
+		height: 280px;
+		border-radius: 9999px;
+		background: radial-gradient(circle, rgba(255, 72, 1, 0.18), transparent 68%);
+		pointer-events: none;
+	}
+
+	.eyebrow {
+		margin: 0 0 12px;
+		font-family: var(--font-mono);
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--cf-orange);
+	}
+
+	h1, h2, h3, p {
+		text-wrap: balance;
+	}
+
+	h1 {
+		margin: 0;
+		max-width: 760px;
+		font-size: clamp(48px, 8vw, 88px);
+		line-height: 0.95;
+		font-weight: 500;
+		letter-spacing: -0.055em;
+	}
+
+	.hero__lead {
+		max-width: 660px;
+		margin: 24px 0 0;
+		font-size: 20px;
+		line-height: 1.45;
+		color: var(--cf-text-muted);
+	}
+
+	.hero__actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin-top: 32px;
+	}
+
+	.hero__badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 24px;
+	}
+
+	.hero__badges span {
+		padding: 8px 12px;
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-200);
+		font-family: var(--font-mono);
+		font-size: 12px;
+		color: var(--cf-text-muted);
+	}
+
+	:global(.hero__media) {
+		position: relative;
+		min-width: 0;
+		width: 100%;
+		max-width: 520px;
+		justify-self: center;
+		padding: 18px;
+		overflow: hidden;
+		transform: rotate(1deg);
+	}
+
+	:global(.hero__media) img {
+		display: block;
+		width: 100%;
+		aspect-ratio: 16 / 10;
+		object-fit: cover;
+		object-position: 64% center;
+		border-radius: 12px;
+	}
+
+	.floating-card {
+		position: absolute;
+		display: grid;
+		gap: 2px;
+		padding: 14px 16px;
+		border: 1px solid var(--cf-border);
+		border-radius: 14px;
+		background: var(--cf-bg-100);
+		box-shadow: var(--shadow-lg);
+		font-family: var(--font-mono);
+		animation: floatCard 4s ease-in-out infinite;
+	}
+
+	.floating-card span {
+		font-size: 11px;
+		color: var(--cf-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.floating-card strong {
+		font-size: 20px;
+		font-weight: 500;
+		color: var(--cf-orange);
+	}
+
+	.floating-card--top {
+		top: 14px;
+		left: 14px;
+	}
+
+	.floating-card--bottom {
+		right: 14px;
+		bottom: 14px;
+		animation-delay: -1.8s;
+	}
+
+	.stats-strip {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1px;
+		margin-top: 58px;
+		border: 1px solid var(--cf-border);
+		border-radius: 18px;
+		background: var(--cf-border);
+		overflow: hidden;
+	}
+
+	.stats-strip div {
+		display: grid;
+		gap: 6px;
+		padding: 22px;
+		background: var(--cf-bg-200);
+	}
+
+	.stats-strip strong {
+		font-size: 28px;
+		font-weight: 500;
+		letter-spacing: -0.04em;
+	}
+
+	.stats-strip span {
+		font-family: var(--font-mono);
+		font-size: 12px;
+		color: var(--cf-text-muted);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+	}
+
+	.section {
+		margin-top: 80px;
+	}
+
+	.section__heading {
+		max-width: 720px;
+		margin: 0 auto 28px;
+		text-align: center;
+	}
+
+	h2 {
+		margin: 0;
+		font-size: clamp(32px, 5vw, 52px);
+		line-height: 1;
+		font-weight: 500;
+		letter-spacing: -0.04em;
+	}
+
+	.feature-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 16px;
+	}
+
+	:global(.feature-card) {
+		padding: 36px;
+	}
+
+	.feature-icon {
+		display: block;
+		width: 42px;
+		height: 42px;
+		margin-bottom: 18px;
+		border: 1px dashed currentColor;
+		border-radius: 10px;
+		background: color-mix(in srgb, currentColor 12%, transparent);
+	}
+
+	.feature-icon.compute { color: var(--cf-compute); }
+	.feature-icon.storage { color: var(--cf-storage); }
+	.feature-icon.ai { color: var(--cf-orange); }
+
+	:global(.feature-card) h3 {
+		margin: 0 0 8px;
+		font-size: 22px;
+		font-weight: 500;
+	}
+
+	:global(.feature-card) p,
+	:global(.architecture__card) p,
+	:global(.arena__card) p {
+		margin: 0;
+		line-height: 1.6;
+		color: var(--cf-text-muted);
+	}
+
+	:global(.architecture__card) {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 24px;
+		padding: 44px;
+	}
+
+	:global(.arena__card),
+	.final-cta {
+		position: relative;
+		overflow: hidden;
+	}
+
+	:global(.arena__card) {
+		display: grid;
+		grid-template-columns: 1.2fr 0.8fr;
+		gap: 36px;
+		align-items: center;
+		padding: 44px;
+	}
+
+	.result-preview {
+		display: grid;
+		place-items: center;
+		min-height: 240px;
+		padding: 28px;
+		border: 1px dashed rgba(255, 72, 1, 0.5);
+		border-radius: 18px;
+		background: radial-gradient(circle at 50% 0%, rgba(255, 72, 1, 0.22), transparent 58%), var(--cf-bg-100);
+		text-align: center;
+	}
+
+	.result-preview span {
+		font-family: var(--font-mono);
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--cf-orange);
+	}
+
+	.result-preview strong {
+		font-size: 54px;
+		font-weight: 500;
+		letter-spacing: -0.06em;
+	}
+
+	.result-preview p {
+		margin: 0;
+		color: var(--cf-text-muted);
+	}
+
+	.final-cta {
+		margin-top: 80px;
+		padding: 56px 28px;
+		border-radius: 24px;
+		background: var(--cf-orange);
+		color: var(--cf-bg-100);
+		text-align: center;
+		box-shadow: var(--shadow-lg);
+	}
+
+	.final-cta .eyebrow,
+	.final-cta p {
+		color: rgba(255, 251, 245, 0.72);
+	}
+
+	.final-cta p:not(.eyebrow) {
+		max-width: 620px;
+		margin: 16px auto 28px;
+		font-size: 18px;
+		line-height: 1.55;
+	}
+
+	.architecture-diagram {
+		position: relative;
+		padding: 20px;
+		border: 1px dashed var(--cf-border);
+		border-radius: 18px;
+		background:
+			radial-gradient(circle at 82% 10%, rgba(255, 72, 1, 0.14), transparent 36%),
+			radial-gradient(circle at 12% 82%, rgba(10, 149, 255, 0.1), transparent 34%),
+			var(--cf-bg-100);
+		overflow: hidden;
+	}
+
+	.architecture-diagram::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background-image: radial-gradient(circle, var(--cf-border-light) 0.75px, transparent 0.75px);
+		background-size: 12px 12px;
+		pointer-events: none;
+	}
+
+	.diagram-flow {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		grid-template-columns: 104px minmax(0, 1fr);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.diagram-row {
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
+		align-items: center;
+	}
+
+	.diagram-tier {
+		padding-right: 14px;
+		font-family: var(--font-mono);
+		font-size: 10px;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--cf-text-subtle);
+	}
+
+	.diagram-node {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		gap: 7px;
+		min-height: 108px;
+		padding: 20px;
+		border: 1px solid var(--cf-border);
+		border-radius: 16px;
+		background: color-mix(in srgb, var(--cf-bg-200) 94%, transparent);
+		box-shadow: var(--shadow-card);
+	}
+
+	.diagram-node span {
+		width: fit-content;
+		padding: 4px 8px;
+		border-radius: 9999px;
+		background: var(--cf-orange-light);
+		font-family: var(--font-mono);
+		font-size: 11px;
+		color: var(--cf-orange);
+	}
+
+	.diagram-node strong {
+		font-size: 18px;
+		font-weight: 500;
+		letter-spacing: -0.03em;
+	}
+
+	.diagram-node small {
+		font-size: 13px;
+		line-height: 1.45;
+		color: var(--cf-text-muted);
+	}
+
+	.diagram-node--worker {
+		border-color: rgba(255, 72, 1, 0.45);
+	}
+
+	.diagram-node--hub {
+		border-color: var(--cf-orange);
+		background:
+			radial-gradient(circle at right top, rgba(255, 72, 1, 0.16), transparent 44%),
+			var(--cf-bg-200);
+	}
+
+	.diagram-node--hub::before {
+		content: '';
+		position: absolute;
+		inset: -10px;
+		z-index: -1;
+		border: 1px dashed var(--cf-orange);
+		border-radius: 22px;
+		opacity: 0.45;
+		animation: pulse-hub 3s ease-in-out infinite;
+	}
+
+	.diagram-node--storage {
+		border-style: dashed;
+		background: var(--cf-bg-300);
+	}
+
+	.diagram-connector {
+		position: relative;
+		z-index: 2;
+		grid-column: 2;
+		display: grid;
+		place-items: center;
+		height: 66px;
+	}
+
+	.diagram-connector svg {
+		width: 24px;
+		height: 64px;
+		overflow: visible;
+	}
+
+	.diagram-connector line {
+		stroke: var(--cf-orange);
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-dasharray: 8 6;
+		animation: line-flow 1.2s linear infinite;
+	}
+
+	.diagram-connector path {
+		fill: none;
+		stroke: var(--cf-orange);
+		stroke-width: 1.5;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.diagram-connector span,
+	.diagram-ws-label,
+	.diagram-legend span {
+		border: 1px solid var(--cf-border);
+		border-radius: 9999px;
+		background: var(--cf-bg-100);
+		font-family: var(--font-mono);
+		font-size: 10px;
+		color: var(--cf-text-muted);
+		white-space: nowrap;
+	}
+
+	.diagram-connector span {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(22px, -50%);
+		padding: 5px 8px;
+	}
+
+	.diagram-websocket-arc {
+		position: absolute;
+		inset: 58px 12px auto auto;
+		z-index: 0;
+		width: 42%;
+		height: 470px;
+		pointer-events: none;
+	}
+
+	.diagram-websocket-arc path {
+		fill: none;
+		stroke: rgba(82, 16, 0, 0.38);
+		stroke-width: 1.5;
+		stroke-dasharray: 8 6;
+		animation: line-flow 1.4s linear infinite reverse;
+	}
+
+	.diagram-ws-label {
+		position: absolute;
+		right: 20px;
+		top: 270px;
+		z-index: 3;
+		padding: 5px 9px;
+		transform: rotate(90deg);
+		transform-origin: center;
+	}
+
+	.diagram-legend {
+		position: relative;
+		z-index: 2;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin: 16px 0 0 104px;
+	}
+
+	.diagram-legend span {
+		padding: 6px 9px;
+		background: var(--cf-bg-200);
+	}
+
+	@keyframes line-flow {
+		to { stroke-dashoffset: -14; }
+	}
+
+	@keyframes pulse-hub {
+		0%, 100% { transform: scale(1); opacity: 0.45; }
+		50% { transform: scale(1.06); opacity: 0.2; }
+	}
+
+	@media (max-width: 700px) {
+		.diagram-flow {
+			grid-template-columns: 1fr;
+		}
+
+		.diagram-tier {
+			padding: 0 0 8px;
+		}
+
+		.diagram-row {
+			display: grid;
+			grid-template-columns: 1fr;
+		}
+
+		.diagram-connector {
+			grid-column: 1;
+			height: 48px;
+		}
+
+		.diagram-connector svg {
+			height: 46px;
+		}
+
+		.diagram-connector span {
+			left: calc(50% + 18px);
+		}
+
+		.diagram-websocket-arc,
+		.diagram-ws-label {
+			display: none;
+		}
+
+		.diagram-legend {
+			margin-left: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.diagram-connector line,
+		.diagram-websocket-arc path,
+		.diagram-node--hub::before {
+			animation: none;
+		}
+	}
+
+	@media (max-width: 900px) {
+		.hero,
+		.feature-grid,
+		.stats-strip,
+		:global(.architecture__card),
+		:global(.arena__card) {
+			grid-template-columns: 1fr;
+		}
+
+		:global(.hero__media) {
+			transform: none;
+			justify-self: stretch;
+			max-width: none;
+		}
+
+		:global(.feature-card),
+		:global(.architecture__card),
+		:global(.arena__card) {
+			padding: 28px;
+		}
+	}
+
+	@media (max-width: 520px) {
+		.landing {
+			padding-inline: 12px;
+		}
+
+		.floating-card {
+			position: static;
+			margin-top: 10px;
+			animation: none;
+		}
+	}
+
+	@keyframes floatCard {
+		0%, 100% { transform: translateY(0); }
+		50% { transform: translateY(-7px); }
+	}
+</style>

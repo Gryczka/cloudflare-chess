@@ -1,0 +1,144 @@
+---
+import BackgroundLines from '../components/BackgroundLines.astro';
+import Card from '../components/Card.astro';
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import Layout from '../layouts/Layout.astro';
+import { BOT_CONFIGS, BOT_DIFFICULTY_ORDER } from '../lib/chess/bot';
+import { TIME_CONTROLS } from '../lib/messages';
+---
+
+<Layout title="Play a Chess Bot">
+	<BackgroundLines />
+	<Header />
+	<main id="main-content" class="bot-page">
+		<div class="page-heading">
+			<p class="eyebrow">Choose your opponent</p>
+			<h1>Play an edge-native chess bot.</h1>
+			<p>Each difficulty runs inside the ChessMatch Durable Object with a different search depth, evaluation model, and time budget.</p>
+		</div>
+		<Card class="bot-controls">
+			<label>
+				<span>Display name</span>
+				<input id="bot-username" maxlength="24" placeholder="Ada" autocomplete="nickname" />
+			</label>
+			<fieldset>
+				<legend>Time control</legend>
+				<div class="time-grid">
+					{TIME_CONTROLS.map((control, index) => (
+						<label class="time-pill"><input type="radio" name="bot-time" value={control.value} checked={index === 2} /><strong>{control.label}</strong><span>{control.description}</span></label>
+					))}
+				</div>
+			</fieldset>
+		</Card>
+		<div class="bot-grid">
+			{BOT_DIFFICULTY_ORDER.map((difficulty, index) => {
+				const bot = BOT_CONFIGS[difficulty];
+				const recommended = index === 1; // Edge Knight — good first opponent
+				const strengthLabel = bot.rating < 1000 ? 'Beginner' : bot.rating < 1400 ? 'Casual' : bot.rating < 1700 ? 'Club' : bot.rating < 2000 ? 'Advanced' : 'Expert';
+				return (
+					<Card class={`bot-card${recommended ? ' bot-card--recommended' : ''}`}>
+						{recommended && <span class="bot-recommended-badge">Recommended</span>}
+						<div class="bot-avatar">{bot.name.replace('Edge ', '').charAt(0)}</div>
+						<div>
+							<p class="eyebrow">{strengthLabel} · {bot.rating} Elo</p>
+							<h2>{bot.name}</h2>
+						</div>
+						<p class="bot-bio">{bot.bio}</p>
+						<details class="bot-details">
+							<summary>Technical details</summary>
+							<ul>
+								<li>Search depth {bot.maxDepth}</li>
+								<li>{bot.useTT ? 'Transposition table on' : 'No transposition table'}</li>
+								<li>{bot.useBook ? 'Opening book on' : 'No opening book'}</li>
+								<li>{bot.useQuiescence === 'none' ? 'No quiescence search' : 'Quiescence search on'}</li>
+								<li>Time budget {bot.timeBudgetMs}ms</li>
+							</ul>
+						</details>
+						<button class="bot-play" data-difficulty={difficulty}>Play {bot.name}</button>
+					</Card>
+				);
+			})}
+		</div>
+		<p id="bot-status" class="bot-status"></p>
+	</main>
+	<Footer />
+	<script is:inline>
+		const savedName = localStorage.getItem('cf-chess-username');
+		const username = document.querySelector('#bot-username');
+		if (savedName && username) username.value = savedName;
+
+		document.querySelectorAll('[data-difficulty]').forEach((button) => {
+			button.addEventListener('click', async () => {
+				const name = username?.value?.trim() || 'Player';
+				localStorage.setItem('cf-chess-username', name);
+				const time = Number(document.querySelector('input[name="bot-time"]:checked')?.value ?? 300000);
+				const status = document.querySelector('#bot-status');
+				if (status) status.textContent = 'Waking bot...';
+				const response = await fetch('/api/match/bot', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ username: name, timeControlMs: time, difficulty: button.getAttribute('data-difficulty') }),
+				});
+				if (!response.ok) {
+					if (status) status.textContent = 'Could not create bot match.';
+					return;
+				}
+				const data = await response.json();
+				// QR-1: a freshly minted account returns its recovery key once — surface
+				// it before navigating away or the player can never recover the account.
+				if (data.secret) {
+					if (typeof window.__showRecoveryKey === 'function') {
+						window.__showRecoveryKey(data.secret);
+					} else {
+						window.alert(`Save your recovery key — it is shown only once:\n\n${data.secret}\n\nKeep it somewhere safe. Use it at /login to recover this account.`);
+					}
+				}
+				location.href = `/match/${data.matchId}`;
+			});
+		});
+	</script>
+</Layout>
+
+<style>
+	.bot-page { max-width: var(--container-xl); margin: 0 auto; padding: 48px 16px 0; }
+	.page-heading { max-width: 820px; margin-bottom: 28px; }
+	.eyebrow { margin: 0 0 10px; font-family: var(--font-mono); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--cf-orange); }
+	h1 { margin: 0; font-size: clamp(44px, 7vw, 78px); line-height: .95; font-weight: 500; letter-spacing: -.055em; }
+	.page-heading p, .bot-card p, .bot-status { color: var(--cf-text-muted); line-height: 1.55; }
+	:global(.bot-controls) { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 20px; padding: 28px; margin-bottom: 16px; }
+	label span, legend { display: block; margin-bottom: 8px; font-weight: 500; }
+	input { width: 100%; padding: 14px 16px; border: 1px solid var(--cf-border); border-radius: 10px; background: var(--cf-bg-100); color: var(--cf-text); outline: none; }
+	fieldset { margin: 0; padding: 0; border: 0; }
+	.time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+	.time-pill { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--cf-border); border-radius: 14px; background: var(--cf-bg-100); cursor: pointer; }
+	.time-pill:has(input:checked) { border-color: var(--cf-orange); background: var(--cf-orange-light); }
+	/* UX-15: keyboard focus ring on time-control pills */
+	.time-pill:focus-within {
+		outline: 2px solid var(--cf-orange);
+		outline-offset: 2px;
+	}
+
+	.time-pill input { position: absolute; opacity: 0; }
+	.time-pill strong { font-size: 18px; font-weight: 500; }
+	.time-pill span { font-size: 12px; color: var(--cf-text-muted); }
+	.bot-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+	:global(.bot-card) { display: grid; gap: 12px; padding: 24px; }
+	.bot-avatar { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 14px; background: var(--cf-orange); color: var(--cf-bg-100); font-size: 24px; font-weight: 500; }
+	h2 { margin: 0; font-size: 24px; line-height: 1; font-weight: 500; letter-spacing: -.04em; }
+	ul { display: grid; gap: 5px; margin: 0; padding: 0; list-style: none; font-family: var(--font-mono); font-size: 11px; color: var(--cf-text-muted); }
+	.bot-bio { color: var(--cf-text-muted); line-height: 1.5; font-size: 14px; margin: 0; }
+	.bot-details summary { font-size: 12px; color: var(--cf-text-muted); cursor: pointer; margin-bottom: 6px; font-family: var(--font-mono); }
+	.bot-details[open] summary { color: var(--cf-text); }
+	:global(.bot-card--recommended) { border-color: var(--cf-orange); box-shadow: 0 0 0 2px var(--cf-orange-light); }
+	.bot-recommended-badge {
+		display: inline-block; padding: 3px 10px; border-radius: 9999px;
+		background: var(--cf-orange); color: #fff;
+		font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+		text-transform: uppercase; margin-bottom: 4px;
+	}
+	.bot-play { min-height: 42px; border: 0; border-radius: 9999px; background: var(--cf-orange); color: var(--cf-bg-100); font-weight: 500; cursor: pointer; }
+	.bot-status { min-height: 20px; text-align: center; font-family: var(--font-mono); }
+	@media (max-width: 1080px) { .bot-grid { grid-template-columns: repeat(2, 1fr); } }
+	@media (max-width: 700px) { :global(.bot-controls), .bot-grid, .time-grid { grid-template-columns: 1fr; } }
+</style>
