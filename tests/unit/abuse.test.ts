@@ -62,14 +62,14 @@ describe('isAllowed / rate limiter (QR-9)', () => {
 		expect(await isAllowed(null, 'ip')).toBe(true);
 	});
 
-	it('calls limiter.limit with the key and returns true when not limited', async () => {
-		const limiter = { limit: vi.fn().mockResolvedValue({ limited: false }) };
+	it('calls limiter.limit with the key and returns true when allowed', async () => {
+		const limiter = { limit: vi.fn().mockResolvedValue({ success: true }) };
 		expect(await isAllowed(limiter, '1.2.3.4')).toBe(true);
 		expect(limiter.limit).toHaveBeenCalledWith({ key: '1.2.3.4' });
 	});
 
-	it('returns false (deny) when limiter reports limited', async () => {
-		const limiter = { limit: vi.fn().mockResolvedValue({ limited: true }) };
+	it('returns false when limiter rejects the request', async () => {
+		const limiter = { limit: vi.fn().mockResolvedValue({ success: false }) };
 		expect(await isAllowed(limiter, '1.2.3.4')).toBe(false);
 	});
 });

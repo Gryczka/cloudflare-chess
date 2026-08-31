@@ -1,5 +1,6 @@
 # Cloudflare Chess
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Gryczka/cloudflare-chess)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 > An edge-native, real-time multiplayer chess platform built entirely on Cloudflare Workers — no origin server, ever. Durable Objects hold authoritative game state, D1 tracks Elo ratings, R2 archives finished games, Queues drive async AI coaching, and Browser Rendering generates shareable recap images.
@@ -121,7 +122,7 @@ npm install
 cp .dev.vars.example .dev.vars
 ```
 
-The dev fallback `AUTH_SECRET` works out of the box for local development — session cookies function but are not production-hardened. Rate limiting and Turnstile are no-ops locally (see [Configuration](#configuration)).
+If `AUTH_SECRET` is blank or omitted, local development falls back to a known insecure value so session cookies still work. The Deploy to Cloudflare flow requires a real value. Turnstile remains disabled locally unless configured after deployment (see [Configuration](#configuration)).
 
 ### Run the dev server
 
@@ -139,23 +140,27 @@ npm run test:workers  # workerd/vitest Durable Object integration tests only
 
 ## Configuration
 
-All configuration lives in `wrangler.jsonc`. The repo ships with safe placeholder values so `npm install && npm run dev` works with zero setup; replace the placeholders before deploying to your own Cloudflare account.
+All configuration lives in `wrangler.jsonc`. The repo ships with safe placeholder resource values so `npm install && npm run dev` works with zero setup. The Deploy to Cloudflare flow replaces provisioned resource IDs and prompts for required secrets.
 
 | Variable / Binding | Purpose | Required for local dev? |
 |---|---|---|
-| `AUTH_SECRET` | HMAC key signing session cookies (QR-1) | No — insecure dev default provided; **must** be overridden via `wrangler secret put AUTH_SECRET` in production |
+| `AUTH_SECRET` | HMAC key signing session cookies (QR-1) | No — blank/omitted falls back locally; required by Deploy to Cloudflare and production deploys |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret, guards account creation | No — empty disables the check (no-op) |
-| `RATE_LIMIT_ENROLL` / `RATE_LIMIT_LOGIN` | Rate Limiting bindings (QR-9) | No — do **not** configure real namespace IDs locally; the shared `127.0.0.1` fallback would make sequential requests/tests interfere with each other |
+| `RATE_LIMIT_ENROLL` / `RATE_LIMIT_LOGIN` | Rate Limiting bindings (QR-9) | No — Wrangler provides local simulations; namespace IDs are application-defined integers |
 | `KV` namespace | Leaderboard cache | No — placeholder id works with `remoteBindings: false` |
 | `DB` (D1) | Profiles, ratings, opening-explorer positions | No — migrations auto-apply in dev/tests |
 | `R2_ARCHIVE` bucket | Immutable game archives | No — placeholder works locally |
 | `GAME_ANALYSIS_QUEUE` | Post-game AI analysis queue | No |
 | `AI` | Workers AI binding, routed through an AI Gateway | No, but real analysis requires a real account + gateway |
-| `BROWSER` | Browser Rendering binding for recap screenshots | No, but requires a Workers Paid plan in production |
+| `BROWSER` | Browser Run binding for recap screenshots | No — remote use is subject to your account's Browser Run limits |
 
 See the [Deploying to Cloudflare](#deploying-to-cloudflare) section for the commands to provision each real resource.
 
 ## Deploying to Cloudflare
+
+The button at the top of this README provisions the supported bindings, prompts for `AUTH_SECRET`, applies D1 migrations, registers the Queue consumer, and deploys the Worker. AI Gateway and Turnstile remain optional post-deploy configuration.
+
+For a manual deployment, follow the steps below.
 
 **1. Create the required resources** (one-time, per Cloudflare account):
 
@@ -171,41 +176,33 @@ Copy the returned KV namespace id and D1 database id into `wrangler.jsonc`, repl
 **2. Apply D1 migrations:**
 
 ```bash
-npx wrangler d1 migrations apply cf-chess-profiles --remote
+npx wrangler d1 migrations apply DB --remote
 ```
 
-**3. Configure the queue consumer:**
-
-```bash
-npx wrangler queues consumer add game-analysis-queue <your-worker-name>
-```
-
-**4. Set the session-signing secret** (required):
+**3. Set the session-signing secret** (required):
 
 ```bash
 npx wrangler secret put AUTH_SECRET
 ```
 
-**5. Optional — Turnstile** (protects account creation against bot farming):
+**4. Optional — Turnstile** (protects account creation against bot farming):
 
 1. Create a Turnstile widget in the [Cloudflare dashboard](https://dash.cloudflare.com/?to=/:account/turnstile).
 2. Set the secret key: `npx wrangler secret put TURNSTILE_SECRET_KEY`
 3. Add the corresponding site key to the enroll form.
 
-**6. Optional — Rate Limiting:**
+**5. Optional — Rate Limiting:**
 
-1. Create two Rate Limiting rules in the dashboard for your Worker: an **enroll** rule (5 req/60s) and a **login** rule (10 req/60s).
-2. Copy their namespace IDs into `wrangler.jsonc`'s `rate_limiting` block, replacing the placeholder `"1"` / `"2"` values.
+The checked-in namespace IDs are application-defined positive integers and work as-is. Change them only if they collide with another Worker's Rate Limiting bindings in your account and you do not want those Workers to share counters.
 
-> Do not configure real Rate Limiting namespace IDs for local dev — the `127.0.0.1` IP fallback means all local requests would share one bucket.
+> Wrangler uses local Rate Limiting simulations during development, so local calls do not affect deployed counters.
 
-**7. Configure an AI Gateway** (for post-game coaching): create a gateway named `cf-chess-gateway` in the dashboard, or change the `gateway.id` in `src/worker.ts` to match your own.
+**6. Configure an AI Gateway** (for post-game coaching): create a gateway named `cf-chess-gateway` in the dashboard, or change the `gateway.id` in `src/worker.ts` to match your own.
 
-**8. Build and deploy:**
+**7. Build, apply migrations, and deploy:**
 
 ```bash
-npm run build
-npx wrangler deploy
+npm run deploy
 ```
 
 ## Project Structure

@@ -1,13 +1,8 @@
 # Copy this file to .dev.vars for local development.
 # .dev.vars is gitignored and never committed.
 
-# Signing key for session cookies (QR-1). A working insecure default is
-# already baked into wrangler.jsonc for local dev, so this is optional
-# locally — but ALWAYS set a real secret in production via:
-#   npx wrangler secret put AUTH_SECRET
-AUTH_SECRET=dev-insecure-auth-secret-change-me
-
-# Cloudflare Turnstile secret key, guards account creation against bot
-# farming. Leave empty to disable Turnstile verification locally (no-op).
-# Get a real key from: https://dash.cloudflare.com/?to=/:account/turnstile
-TURNSTILE_SECRET_KEY=
+# Signing key for session cookies (QR-1). Generate a value with:
+#   openssl rand -hex 32
+# Leaving this blank is acceptable only for local development, where the app
+# falls back to a known insecure value. Production deploys require a real key.
+AUTH_SECRET=

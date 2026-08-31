@@ -7,11 +7,10 @@
 	"main": "./src/worker.ts",
 	"workers_dev": true,
 	"preview_urls": true,
+	"secrets": {
+		"required": ["AUTH_SECRET"]
+	},
 	"vars": {
-		// Dev/CI fallback only. In production override with a real secret:
-		//   npx wrangler secret put AUTH_SECRET
-		// (secrets take precedence over vars at runtime). Used to sign session cookies (QR-1).
-		"AUTH_SECRET": "dev-insecure-auth-secret-change-me",
 		// Empty = disabled; set real Turnstile secret via dashboard or:
 		//   npx wrangler secret put TURNSTILE_SECRET_KEY
 		"TURNSTILE_SECRET_KEY": ""
@@ -33,19 +32,20 @@
 	"ai": {
 		"binding": "AI"
 	},
-	// P4-F: Browser Rendering for headless board screenshots.
-	// Requires Workers Paid plan. Binding auto-provisions a browser instance.
+	// P4-F: Browser Run for headless board screenshots.
 	"browser": {
 		"binding": "BROWSER"
 	},
 	// P4-C: Queues for async post-game analysis.
-	// Create with: npx wrangler queues create game-analysis-queue
-	// Consumer config is added separately:
-	//   npx wrangler queues consumer add game-analysis-queue cloudflare-chess-demo
 	"queues": {
 		"producers": [
 			{
 				"binding": "GAME_ANALYSIS_QUEUE",
+				"queue": "game-analysis-queue"
+			}
+		],
+		"consumers": [
+			{
 				"queue": "game-analysis-queue"
 			}
 		]
@@ -104,20 +104,17 @@
 	"observability": {
 		"enabled": true
 	},
-	// QR-9: Rate Limiting bindings. namespace_id must be replaced with real IDs
-	// from the Cloudflare dashboard BEFORE deploying to production. They are
-	// intentionally left as placeholders so local dev / wrangler types work.
-	// Do NOT configure these locally — the 127.0.0.1 IP fallback would cause
-	// sequential test runs to share a rate-limit bucket and fail non-deterministically.
-	// See README §Rate Limiting for setup steps.
-	"rate_limiting": [
+	// QR-9: namespace_id values are application-defined positive integers. Use
+	// different values only if another Worker in the account should not share
+	// the same counters for matching keys.
+	"ratelimits": [
 		{
-			"binding": "RATE_LIMIT_ENROLL",
+			"name": "RATE_LIMIT_ENROLL",
 			"namespace_id": "1",
 			"simple": { "limit": 5, "period": 60 }
 		},
 		{
-			"binding": "RATE_LIMIT_LOGIN",
+			"name": "RATE_LIMIT_LOGIN",
 			"namespace_id": "2",
 			"simple": { "limit": 10, "period": 60 }
 		}

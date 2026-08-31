@@ -11,13 +11,20 @@
 		"preview": "astro build && astro preview",
 		"astro": "astro",
 		"generate-types": "wrangler types",
-		"deploy": "wrangler types && astro build && wrangler deploy",
+		"deploy": "wrangler types && astro build && wrangler d1 migrations apply DB --remote && wrangler deploy",
 		"cf-typegen": "wrangler types",
 		"test": "npm run test:unit && npm run test:workers",
 		"test:unit": "vitest run --config vitest.config.ts",
 		"test:workers": "vitest run --config vitest.workers.config.ts",
 		"test:watch": "vitest --config vitest.config.ts",
 		"check": "astro check && npm run test:unit && npm run test:workers"
+	},
+	"cloudflare": {
+		"bindings": {
+			"AUTH_SECRET": {
+				"description": "Generate a random session-signing key with `openssl rand -hex 32`."
+			}
+		}
 	},
 	"dependencies": {
 		"@astrojs/cloudflare": "^13.5.1",
