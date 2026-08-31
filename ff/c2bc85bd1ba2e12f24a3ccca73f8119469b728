@@ -1,0 +1,21 @@
+package-lock.json
+  s_286a3c1f949687::t_b5972e9640f18b 2,8
+worker-configuration.d.ts
+  s_286a3c1f949687::t_6ea05abc32af69 2,14-15,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ffc2bc85bd1ba2e12f24a3ccca73f8119469b728",
+  "prompts": {},
+  "sessions": {
+    "s_286a3c1f949687": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fa6d486fbffeYfwwNmNGSgD3zn",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "gryczka <pgryczka@cloudflare.com>"
+    }
+  }
+}
