@@ -28,6 +28,8 @@
 
 ## Architecture
 
+![Cloudflare Chess architecture](docs/architecture-tile-dark.png)
+
 ```mermaid
 graph TD
     Browser[Browser]
